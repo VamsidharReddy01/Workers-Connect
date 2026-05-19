@@ -1,39 +1,61 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import SignupSerializer
-from django.contrib.auth import authenticate
+from .serializers import SignupSerializer, LoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+
+class LoginRateThrottle(AnonRateThrottle):
+    """Stricter throttle for login attempts to prevent brute-force attacks."""
+    rate = '5/minute'
+
+
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def signup(request):
 
     serializer = SignupSerializer(data=request.data)
 
     if serializer.is_valid():
-        serializer.save()
-        return Response(
-            {'message': 'User created successfully'},
-            status=status.HTTP_201_CREATED
-        )
+        user = serializer.save()
 
-    return Response(serializer.errors, status=400)
+        # Return tokens immediately so the user is logged in after signup
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'message': 'User created successfully',
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+    return Response(
+        {'errors': serializer.errors},
+        status=status.HTTP_400_BAD_REQUEST
+    )
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login(request):
 
-    email = request.data.get('email')
-    password = request.data.get('password')
+    serializer = LoginSerializer(data=request.data)
 
-    user = authenticate(username=email, password=password)
-
-    if user is None:
+    if not serializer.is_valid():
         return Response(
-            {'error': 'Invalid credentials'},
-            status=400
+            {'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
+    user = serializer.validated_data['user']
     refresh = RefreshToken.for_user(user)
 
     return Response({
@@ -45,4 +67,4 @@ def login(request):
             'email': user.email,
             'role': user.role,
         }
-    })
+    }, status=status.HTTP_200_OK)
