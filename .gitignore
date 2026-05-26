@@ -1,16 +1,23 @@
+# VSCode
+.vscode/
+
 # Python
 __pycache__/
 *.pyc
 .env
 venv/
-.vscode/
+
 # Django
 db.sqlite3
 media/
 
 # Flutter
-build/
 .dart_tool/
+.packages
+build/
+
+# Node
+node_modules/
 
 # OS
 .DS_Store
