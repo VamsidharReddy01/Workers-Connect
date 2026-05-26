@@ -6,7 +6,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'phone_number']
+        fields = ['id', 'username', 'email', 'role', 'phone_number', 'location']
         read_only_fields = ['id', 'role']
 
 
@@ -23,10 +23,11 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role', 'phone_number']
+        fields = ['username', 'email', 'password', 'role', 'phone_number', 'location']
         extra_kwargs = {
             'role': {'required': False},
             'phone_number': {'required': False},
+            'location': {'required': False},
         }
 
     def validate_email(self, value):
@@ -48,6 +49,7 @@ class SignupSerializer(serializers.ModelSerializer):
             password=validated_data['password'],
             role=validated_data.get('role', 'customer'),
             phone_number=validated_data.get('phone_number'),
+            location=validated_data.get('location'),
         )
         return user
 

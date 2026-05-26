@@ -26,10 +26,22 @@ class StorageKeys {
   static const String username = 'username';
   static const String email = 'user_email';
   static const String role = 'user_role';
+  static const String location = 'user_location';
 }
 
 /// App Color Palette
 class AppColors {
+  // Light Mode Color Palette (for Onboarding UI matching Screenshots)
+  static const Color lightBg = Color(0xFFF8FAFC);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightPrimary = Color(0xFF3444F4);
+  static const Color lightAccent = Color(0xFF5E6DF8);
+  static const Color lightBorder = Color(0xFFE2E6F2);
+  static const Color lightTextPrimary = Color(0xFF1E212D);
+  static const Color lightTextSecondary = Color(0xFF6E7489);
+  static const Color lightTextHint = Color(0xFFA2A7B8);
+  static const Color lightInputFill = Color(0xFFFDFDFD);
+
   // Primary gradient colors
   static const Color primaryDark = Color(0xFF0A0E21);
   static const Color primaryMid = Color(0xFF1A1F3A);

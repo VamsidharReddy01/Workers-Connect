@@ -20,3 +20,9 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
+
+    location = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )

@@ -26,6 +26,7 @@ class AuthService {
     required String password,
     required String role,
     String? phoneNumber,
+    String? location,
   }) async {
     final body = <String, dynamic>{
       'username': username.trim(),
@@ -35,6 +36,9 @@ class AuthService {
     };
     if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
       body['phone_number'] = phoneNumber.trim();
+    }
+    if (location != null && location.trim().isNotEmpty) {
+      body['location'] = location.trim();
     }
 
     final result = await _api.post(
@@ -159,6 +163,7 @@ class AuthService {
     final username = await _storage.read(key: StorageKeys.username);
     final email = await _storage.read(key: StorageKeys.email);
     final role = await _storage.read(key: StorageKeys.role);
+    final location = await _storage.read(key: StorageKeys.location);
 
     if (id == null || username == null || email == null || role == null) {
       return null;
@@ -169,6 +174,7 @@ class AuthService {
       username: username,
       email: email,
       role: role,
+      location: location,
     );
   }
 
@@ -185,13 +191,17 @@ class AuthService {
     required String refreshToken,
     required UserModel user,
   }) async {
-    await Future.wait([
+    final futures = [
       _storage.write(key: StorageKeys.accessToken, value: accessToken),
       _storage.write(key: StorageKeys.refreshToken, value: refreshToken),
       _storage.write(key: StorageKeys.userId, value: user.id.toString()),
       _storage.write(key: StorageKeys.username, value: user.username),
       _storage.write(key: StorageKeys.email, value: user.email),
       _storage.write(key: StorageKeys.role, value: user.role),
-    ]);
+    ];
+    if (user.location != null) {
+      futures.add(_storage.write(key: StorageKeys.location, value: user.location!));
+    }
+    await Future.wait(futures);
   }
 }

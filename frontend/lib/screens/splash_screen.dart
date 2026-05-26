@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import 'admin_dashboard.dart';
 import 'customer_dashboard.dart';
 import 'login_screen.dart';
+import 'welcome_screen.dart';
 import 'worker_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -74,10 +75,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } else {
-      // Route to Login
+      // Route to Welcome Screen
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const LoginScreen(),
+          pageBuilder: (_, __, ___) => const WelcomeScreen(),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(
             opacity: animation,
             child: child,
