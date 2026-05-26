@@ -160,9 +160,3 @@ Each developer must:
 This project is open-source and available under the MIT License.
 
 ---
-
-## 🤝 Contributors
-
-* Vamsi Reddy
-* Gopi chandh
----
