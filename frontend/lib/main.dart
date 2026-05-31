@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +8,28 @@ import 'utils/constants.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Avoid fetching fonts from fonts.gstatic.com (fails offline / blocked networks).
+  if (kIsWeb) {
+    GoogleFonts.config.allowRuntimeFetching = false;
+  }
+
+  if (kDebugMode) {
+    debugPrint('API base: ${ApiConstants.serverBaseUrl}');
+    debugPrint('Login: ${ApiConstants.loginEndpoint}');
+  }
   runApp(const WorkersConnectApp());
+}
+
+TextTheme _appTextTheme(Brightness brightness) {
+  final base = brightness == Brightness.dark
+      ? ThemeData.dark().textTheme
+      : ThemeData.light().textTheme;
+  // Outfit is loaded from CDN by google_fonts; on web use bundled/system fonts.
+  if (kIsWeb) {
+    return base;
+  }
+  return GoogleFonts.outfitTextTheme(base);
 }
 
 class WorkersConnectApp extends StatelessWidget {
@@ -31,9 +53,7 @@ class WorkersConnectApp extends StatelessWidget {
             secondary: AppColors.accentBlue,
             error: AppColors.error,
           ),
-          textTheme: GoogleFonts.outfitTextTheme(
-            ThemeData.dark().textTheme,
-          ),
+          textTheme: _appTextTheme(Brightness.dark),
         ),
         home: const SplashScreen(),
       ),

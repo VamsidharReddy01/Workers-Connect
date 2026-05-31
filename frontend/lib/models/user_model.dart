@@ -5,6 +5,7 @@ class UserModel {
   final String email;
   final String role;
   final String? location;
+  final String? phoneNumber;
 
   const UserModel({
     required this.id,
@@ -12,6 +13,7 @@ class UserModel {
     required this.email,
     required this.role,
     this.location,
+    this.phoneNumber,
   });
 
   /// Creates a [UserModel] from the API JSON response.
@@ -22,6 +24,7 @@ class UserModel {
       email: json['email'] as String,
       role: json['role'] as String,
       location: json['location'] as String?,
+      phoneNumber: json['phone_number'] as String?,
     );
   }
 
@@ -33,6 +36,7 @@ class UserModel {
       'email': email,
       'role': role,
       'location': location,
+      'phone_number': phoneNumber,
     };
   }
 

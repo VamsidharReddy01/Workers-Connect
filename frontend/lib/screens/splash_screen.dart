@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import 'admin_dashboard.dart';
 import 'customer_dashboard.dart';
 import 'login_screen.dart';
+import 'main_navigation.dart';
 import 'welcome_screen.dart';
 import 'worker_dashboard.dart';
 
@@ -61,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       } else if (user.role == 'admin') {
         nextScreen = AdminDashboard(user: user);
       } else {
-        nextScreen = CustomerDashboard(user: user);
+        nextScreen = MainNavigation(user: user);
       }
 
       Navigator.of(context).pushReplacement(

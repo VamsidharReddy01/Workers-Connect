@@ -6,6 +6,7 @@ import '../utils/validators.dart';
 import 'admin_dashboard.dart';
 import 'customer_dashboard.dart';
 import 'login_screen.dart';
+import 'main_navigation.dart';
 import 'worker_dashboard.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -155,7 +156,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
       } else if (user.role == 'admin') {
         nextScreen = AdminDashboard(user: user);
       } else {
-        nextScreen = CustomerDashboard(user: user);
+        nextScreen = MainNavigation(user: user);
       }
 
       Navigator.of(context).pushAndRemoveUntil(

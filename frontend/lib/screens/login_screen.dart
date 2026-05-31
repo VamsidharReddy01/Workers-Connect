@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import '../utils/validators.dart';
 import 'admin_dashboard.dart';
 import 'customer_dashboard.dart';
+import 'main_navigation.dart';
 import 'signup_screen.dart';
 import 'worker_dashboard.dart';
 
@@ -108,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       } else if (user.role == 'admin') {
         nextScreen = AdminDashboard(user: user);
       } else {
-        nextScreen = CustomerDashboard(user: user);
+        nextScreen = MainNavigation(user: user);
       }
 
       Navigator.of(context).pushAndRemoveUntil(

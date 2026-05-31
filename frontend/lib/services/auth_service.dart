@@ -1,8 +1,8 @@
 import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user_model.dart';
 import '../utils/constants.dart';
 import 'api_service.dart';
+import 'session_store.dart';
 
 /// High-level authentication service.
 ///
@@ -14,7 +14,7 @@ class AuthService {
   AuthService._internal();
 
   final ApiService _api = ApiService();
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final SessionStore _sessionStore = SessionStore();
 
   // ─── SIGNUP ─────────────────────────────────────────────
 
@@ -41,10 +41,7 @@ class AuthService {
       body['location'] = location.trim();
     }
 
-    final result = await _api.post(
-      ApiConstants.signupEndpoint,
-      body: body,
-    );
+    final result = await _api.post(ApiConstants.signupEndpoint, body: body);
 
     if (result.success && result.data != null) {
       final user = UserModel.fromJson(result.data!['user']);
@@ -69,10 +66,7 @@ class AuthService {
   }) async {
     final result = await _api.post(
       ApiConstants.loginEndpoint,
-      body: {
-        'email': email.trim().toLowerCase(),
-        'password': password,
-      },
+      body: {'email': email.trim().toLowerCase(), 'password': password},
     );
 
     if (result.success && result.data != null) {
@@ -92,7 +86,7 @@ class AuthService {
 
   /// Refreshes the access token using the stored refresh token.
   Future<bool> refreshToken() async {
-    final refresh = await _storage.read(key: StorageKeys.refreshToken);
+    final refresh = await _sessionStore.getRefreshToken();
     if (refresh == null) return false;
 
     final result = await _api.post(
@@ -101,10 +95,7 @@ class AuthService {
     );
 
     if (result.success && result.data != null) {
-      await _storage.write(
-        key: StorageKeys.accessToken,
-        value: result.data!['access'],
-      );
+      await _sessionStore.saveAccessToken(result.data!['access']);
       return true;
     }
 
@@ -117,7 +108,7 @@ class AuthService {
 
   /// Returns the stored access token, or null if not logged in.
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: StorageKeys.accessToken);
+    return await _sessionStore.getAccessToken();
   }
 
   /// Decodes and checks if the cached JWT access token is expired (Priority 1 - Task 4).
@@ -131,11 +122,11 @@ class AuthService {
 
       // Base64Url decode the payload (second part of the JWT)
       var payload = parts[1];
-      
+
       // Normalize base64 padding
       final padLength = (4 - (payload.length % 4)) % 4;
       payload += '=' * padLength;
-      
+
       final decodedBytes = base64Url.decode(payload);
       final decodedString = utf8.decode(decodedBytes);
       final map = jsonDecode(decodedString) as Map<String, dynamic>;
@@ -145,7 +136,9 @@ class AuthService {
 
       final expDateTime = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
       // Return true if current time is past expiration (including a 10s buffer)
-      return DateTime.now().add(const Duration(seconds: 10)).isAfter(expDateTime);
+      return DateTime.now()
+          .add(const Duration(seconds: 10))
+          .isAfter(expDateTime);
     } catch (_) {
       return true; // Fallback to expired if parsing fails
     }
@@ -153,34 +146,18 @@ class AuthService {
 
   /// Checks whether the user has a stored session.
   Future<bool> isLoggedIn() async {
-    final token = await _storage.read(key: StorageKeys.accessToken);
+    final token = await _sessionStore.getAccessToken();
     return token != null;
   }
 
   /// Returns the stored user info, or null if not logged in.
   Future<UserModel?> getStoredUser() async {
-    final id = await _storage.read(key: StorageKeys.userId);
-    final username = await _storage.read(key: StorageKeys.username);
-    final email = await _storage.read(key: StorageKeys.email);
-    final role = await _storage.read(key: StorageKeys.role);
-    final location = await _storage.read(key: StorageKeys.location);
-
-    if (id == null || username == null || email == null || role == null) {
-      return null;
-    }
-
-    return UserModel(
-      id: int.parse(id),
-      username: username,
-      email: email,
-      role: role,
-      location: location,
-    );
+    return await _sessionStore.getUser();
   }
 
   /// Clears all stored tokens and user data.
   Future<void> logout() async {
-    await _storage.deleteAll();
+    await _sessionStore.clear();
   }
 
   // ─── PRIVATE HELPERS ────────────────────────────────────
@@ -191,17 +168,10 @@ class AuthService {
     required String refreshToken,
     required UserModel user,
   }) async {
-    final futures = [
-      _storage.write(key: StorageKeys.accessToken, value: accessToken),
-      _storage.write(key: StorageKeys.refreshToken, value: refreshToken),
-      _storage.write(key: StorageKeys.userId, value: user.id.toString()),
-      _storage.write(key: StorageKeys.username, value: user.username),
-      _storage.write(key: StorageKeys.email, value: user.email),
-      _storage.write(key: StorageKeys.role, value: user.role),
-    ];
-    if (user.location != null) {
-      futures.add(_storage.write(key: StorageKeys.location, value: user.location!));
-    }
-    await Future.wait(futures);
+    await _sessionStore.saveSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: user,
+    );
   }
 }

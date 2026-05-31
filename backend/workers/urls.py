@@ -1,0 +1,46 @@
+from django.urls import path
+from .views import (
+    BookingReviewView,
+    CategoryListView,
+    ConversationListView,
+    ConversationMessageView,
+    CustomerBookingCreateView,
+    CustomerBookingListView,
+    JobCategoryOptionsView,
+    NearbyWorkersView,
+    WorkerAvailabilityView,
+    WorkerBookingListView,
+    WorkerBookingStatusView,
+    WorkerDashboardSummaryView,
+    WorkerProfileDetailView,
+    WorkerPublicDetailView,
+    WorkerWorkImageDeleteView,
+    WorkerWorkImageView,
+)
+
+urlpatterns = [
+    path('profile/', WorkerProfileDetailView.as_view(), name='worker-profile'),
+    path('profile/work-images/', WorkerWorkImageView.as_view(), name='worker-work-images'),
+    path(
+        'profile/work-images/<int:image_id>/',
+        WorkerWorkImageDeleteView.as_view(),
+        name='worker-work-image-delete',
+    ),
+    path('availability/', WorkerAvailabilityView.as_view(), name='worker-availability'),
+    path('dashboard/', WorkerDashboardSummaryView.as_view(), name='worker-dashboard-summary'),
+    path('bookings/', WorkerBookingListView.as_view(), name='worker-bookings'),
+    path('bookings/my/', CustomerBookingListView.as_view(), name='customer-bookings'),
+    path('bookings/create/', CustomerBookingCreateView.as_view(), name='customer-booking-create'),
+    path('bookings/<int:booking_id>/review/', BookingReviewView.as_view(), name='booking-review'),
+    path('bookings/<int:booking_id>/status/', WorkerBookingStatusView.as_view(), name='worker-booking-status'),
+    path('conversations/', ConversationListView.as_view(), name='conversations'),
+    path(
+        'conversations/<int:conversation_id>/messages/',
+        ConversationMessageView.as_view(),
+        name='conversation-messages',
+    ),
+    path('categories/', CategoryListView.as_view(), name='worker-categories'),
+    path('job-categories/', JobCategoryOptionsView.as_view(), name='worker-job-categories'),
+    path('nearby/', NearbyWorkersView.as_view(), name='worker-nearby'),
+    path('<int:worker_id>/', WorkerPublicDetailView.as_view(), name='worker-public-detail'),
+]
