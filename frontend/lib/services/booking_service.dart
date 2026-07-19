@@ -38,10 +38,7 @@ class BookingService {
     lastErrorMessage = null;
     final result = await _api.post(
       ApiConstants.bookingReviewEndpoint(bookingId),
-      body: {
-        'rating': rating,
-        'feedback': feedback.trim(),
-      },
+      body: {'rating': rating, 'feedback': feedback.trim()},
     );
     if (result.success) return true;
     lastErrorMessage = result.errorMessage;
@@ -64,7 +61,8 @@ class ChatService {
       if (list is List) {
         return list
             .map(
-              (item) => ConversationModel.fromJson(item as Map<String, dynamic>),
+              (item) =>
+                  ConversationModel.fromJson(item as Map<String, dynamic>),
             )
             .toList();
       }

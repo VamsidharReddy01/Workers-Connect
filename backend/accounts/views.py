@@ -7,13 +7,20 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
-from .serializers import SignupSerializer, LoginSerializer, UserSerializer
+from .serializers import (
+    ChangePasswordSerializer,
+    LoginSerializer,
+    SignupSerializer,
+    SupportTicketSerializer,
+    UserSerializer,
+)
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -129,16 +136,20 @@ class UserProfileView(APIView):
     API View to retrieve and update the authenticated user's profile details.
     """
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request, *args, **kwargs):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def patch(self, request, *args, **kwargs):
         serializer = UserSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(
+                UserSerializer(request.user, context={'request': request}).data,
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {'errors': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
@@ -148,10 +159,55 @@ class UserProfileView(APIView):
         serializer = UserSerializer(request.user, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(
+                UserSerializer(request.user, context={'request': request}).data,
+                status=status.HTTP_200_OK,
+            )
         return Response(
             {'errors': serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {'message': 'Password changed successfully.'},
+                status=status.HTTP_200_OK,
+            )
+        return Response(
+            {'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class SupportTicketListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        tickets = request.user.support_tickets.all()
+        serializer = SupportTicketSerializer(tickets, many=True)
+        return Response({'list': serializer.data}, status=status.HTTP_200_OK)
+
+    def post(self, request, *args, **kwargs):
+        serializer = SupportTicketSerializer(data=request.data)
+        if serializer.is_valid():
+            ticket = serializer.save(user=request.user)
+            return Response(
+                SupportTicketSerializer(ticket).data,
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
         )
 
 

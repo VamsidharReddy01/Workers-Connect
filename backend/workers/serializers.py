@@ -59,9 +59,30 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
 
 
 class WorkerProfileCreateSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False, source='user.username')
+    phone_number = serializers.CharField(required=False, allow_blank=True, source='user.phone_number')
+    address = serializers.CharField(required=False, allow_blank=True, source='user.location')
+    skills = serializers.CharField(required=False, source='category')
+    description = serializers.CharField(required=False, allow_blank=True, source='bio')
+    availability = serializers.BooleanField(required=False, source='is_online')
+    profile_photo = serializers.ImageField(required=False, source='user.profile_photo')
+
     class Meta:
         model = WorkerProfile
-        fields = ['category', 'price', 'experience_years', 'is_online', 'bio']
+        fields = [
+            'category',
+            'skills',
+            'price',
+            'experience_years',
+            'is_online',
+            'availability',
+            'bio',
+            'description',
+            'username',
+            'phone_number',
+            'address',
+            'profile_photo',
+        ]
 
     def validate_category(self, value):
         value = value.strip().title()
@@ -78,6 +99,19 @@ class WorkerProfileCreateSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError('Experience years cannot be negative.')
         return value
+
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop('user', {})
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if user_data:
+            user = instance.user
+            for attr, value in user_data.items():
+                setattr(user, attr, value)
+            user.save()
+        return instance
 
 
 class BookingSerializer(serializers.ModelSerializer):

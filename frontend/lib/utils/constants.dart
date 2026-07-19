@@ -59,6 +59,9 @@ class ApiConstants {
   static String get sendSignupOtpEndpoint => '$baseUrl/signup/send-otp/';
   static String get loginEndpoint => '$baseUrl/login/';
   static String get tokenRefreshEndpoint => '$baseUrl/token/refresh/';
+  static String get userProfileEndpoint => '$baseUrl/profile/';
+  static String get changePasswordEndpoint => '$baseUrl/change-password/';
+  static String get supportTicketsEndpoint => '$baseUrl/support/tickets/';
 
   static String get workersBaseUrl => '$_serverBaseUrl/api/workers';
   static String get workerProfileEndpoint => '$workersBaseUrl/profile/';
@@ -115,6 +118,8 @@ class StorageKeys {
   static const String email = 'user_email';
   static const String role = 'user_role';
   static const String location = 'user_location';
+  static const String phoneNumber = 'user_phone_number';
+  static const String profilePhotoUrl = 'user_profile_photo_url';
 }
 
 /// App Color Palette

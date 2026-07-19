@@ -454,6 +454,83 @@ class ApiService {
     }
   }
 
+  Future<ApiResult> patchMultipart(
+    String url, {
+    required Map<String, String> fields,
+    List<http.MultipartFile> files = const [],
+    bool isRetry = false,
+  }) async {
+    try {
+      final request = http.MultipartRequest('PATCH', Uri.parse(url));
+      request.headers['Accept'] = 'application/json';
+
+      var token = await _sessionStore.getAccessToken();
+      if (token != null) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+
+      request.fields.addAll(fields);
+      request.files.addAll(files);
+
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 401 && !isRetry) {
+        final refreshSuccess = await _attemptSilentRefresh();
+        if (refreshSuccess) {
+          return patchMultipart(
+            url,
+            fields: fields,
+            files: files,
+            isRetry: true,
+          );
+        }
+        return const ApiResult(
+          success: false,
+          errorMessage: 'Session expired. Please log in again.',
+        );
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return const ApiResult(
+          success: false,
+          errorMessage: 'Unexpected response format from server.',
+        );
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResult(success: true, data: decoded);
+      }
+
+      if (decoded.containsKey('errors')) {
+        final errors = decoded['errors'];
+        if (errors is Map<String, dynamic>) {
+          return ApiResult(
+            success: false,
+            fieldErrors: errors,
+            errorMessage: _extractFirstError(errors),
+          );
+        }
+      }
+
+      final message = decoded['error'] ?? decoded['detail'] ?? 'Update failed.';
+      return ApiResult(success: false, errorMessage: message.toString());
+    } on SocketException {
+      return ApiResult(
+        success: false,
+        errorMessage: _connectionErrorMessage(url),
+      );
+    } catch (e) {
+      return ApiResult(
+        success: false,
+        errorMessage: _connectionErrorMessage(url, detail: e.toString()),
+      );
+    }
+  }
+
   /// Sends a DELETE request.
   Future<ApiResult> delete(String url, {bool isRetry = false}) async {
     try {

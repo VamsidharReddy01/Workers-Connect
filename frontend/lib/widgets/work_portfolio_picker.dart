@@ -26,8 +26,9 @@ class WorkPortfolioPicker extends StatelessWidget {
     this.maxImages = 8,
   });
 
-  int get _visibleExistingCount =>
-      existingImages.where((img) => !removedExistingIds.contains(img.id)).length;
+  int get _visibleExistingCount => existingImages
+      .where((img) => !removedExistingIds.contains(img.id))
+      .length;
 
   int get _totalCount => _visibleExistingCount + pendingImages.length;
 
@@ -62,25 +63,23 @@ class WorkPortfolioPicker extends StatelessWidget {
         const SizedBox(height: 8),
         const Text(
           'Add photos of your completed work so customers can see your quality.',
-          style: TextStyle(
-            color: Color(0xFF6E7489),
-            fontSize: 13,
-            height: 1.4,
-          ),
+          style: TextStyle(color: Color(0xFF6E7489), fontSize: 13, height: 1.4),
         ),
         const SizedBox(height: 12),
         Wrap(
           spacing: 10,
           runSpacing: 10,
           children: [
-            ...existingImages.where((img) => !removedExistingIds.contains(img.id)).map(
-              (img) => _ImageTile(
-                imageProvider: NetworkImage(
-                  ApiConstants.resolveMediaUrl(img.imageUrl),
+            ...existingImages
+                .where((img) => !removedExistingIds.contains(img.id))
+                .map(
+                  (img) => _ImageTile(
+                    imageProvider: NetworkImage(
+                      ApiConstants.resolveMediaUrl(img.imageUrl),
+                    ),
+                    onRemove: () => onRemoveExisting(img.id),
+                  ),
                 ),
-                onRemove: () => onRemoveExisting(img.id),
-              ),
-            ),
             ...List.generate(pendingImages.length, (index) {
               final pending = pendingImages[index];
               return _ImageTile(
@@ -88,8 +87,7 @@ class WorkPortfolioPicker extends StatelessWidget {
                 onRemove: () => onRemovePending(index),
               );
             }),
-            if (canAddMore)
-              _AddTile(onTap: onPickImages),
+            if (canAddMore) _AddTile(onTap: onPickImages),
           ],
         ),
       ],
@@ -101,10 +99,7 @@ class PortfolioLocalImage {
   final String filename;
   final Uint8List bytes;
 
-  const PortfolioLocalImage({
-    required this.filename,
-    required this.bytes,
-  });
+  const PortfolioLocalImage({required this.filename, required this.bytes});
 
   static Future<PortfolioLocalImage?> fromXFile(XFile file) async {
     final bytes = await file.readAsBytes();
@@ -119,10 +114,7 @@ class _ImageTile extends StatelessWidget {
   final ImageProvider imageProvider;
   final VoidCallback onRemove;
 
-  const _ImageTile({
-    required this.imageProvider,
-    required this.onRemove,
-  });
+  const _ImageTile({required this.imageProvider, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +149,11 @@ class _ImageTile extends StatelessWidget {
               customBorder: const CircleBorder(),
               child: const Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(Icons.close_rounded, size: 16, color: AppColors.error),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: AppColors.error,
+                ),
               ),
             ),
           ),
@@ -188,7 +184,10 @@ class _AddTile extends StatelessWidget {
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_photo_alternate_outlined, color: AppColors.lightPrimary),
+            Icon(
+              Icons.add_photo_alternate_outlined,
+              color: AppColors.lightPrimary,
+            ),
             SizedBox(height: 4),
             Text(
               'Add',

@@ -8,6 +8,7 @@ class UserModel {
   final String role;
   final String? location;
   final String? phoneNumber;
+  final String? profilePhotoUrl;
 
   const UserModel({
     required this.id,
@@ -16,6 +17,7 @@ class UserModel {
     required this.role,
     this.location,
     this.phoneNumber,
+    this.profilePhotoUrl,
   });
 
   /// Creates a [UserModel] from a signed-in Firebase user.
@@ -26,6 +28,7 @@ class UserModel {
       email: user.email ?? '${user.uid}@workersbridge.app',
       role: role,
       phoneNumber: user.phoneNumber,
+      profilePhotoUrl: user.photoURL,
     );
   }
 
@@ -38,6 +41,7 @@ class UserModel {
       role: json['role'] as String,
       location: json['location'] as String?,
       phoneNumber: json['phone_number'] as String?,
+      profilePhotoUrl: json['profile_photo_url'] as String?,
     );
   }
 
@@ -50,7 +54,26 @@ class UserModel {
       'role': role,
       'location': location,
       'phone_number': phoneNumber,
+      'profile_photo_url': profilePhotoUrl,
     };
+  }
+
+  UserModel copyWith({
+    String? username,
+    String? email,
+    String? location,
+    String? phoneNumber,
+    String? profilePhotoUrl,
+  }) {
+    return UserModel(
+      id: id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      role: role,
+      location: location ?? this.location,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+    );
   }
 
   /// Whether this user has the worker role.

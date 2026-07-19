@@ -70,10 +70,14 @@ class _CustomTextFieldState extends State<CustomTextField> {
         AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           decoration: BoxDecoration(
-            color: _isFocused ? Colors.white.withOpacity(0.08) : AppColors.inputFill,
+            color: _isFocused
+                ? Colors.white.withOpacity(0.08)
+                : AppColors.inputFill,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _isFocused ? AppColors.accentViolet : AppColors.inputBorder,
+              color: _isFocused
+                  ? AppColors.accentViolet
+                  : AppColors.inputBorder,
               width: _isFocused ? 2.0 : 1.0,
             ),
             boxShadow: _isFocused
@@ -93,10 +97,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
             keyboardType: widget.keyboardType,
             validator: widget.validator,
             onChanged: widget.onChanged,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 15,
-            ),
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
             cursorColor: AppColors.accentViolet,
             decoration: InputDecoration(
               hintText: widget.hintText,
@@ -118,7 +119,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       },
                       child: Icon(
                         _obscureText ? Icons.visibility_off : Icons.visibility,
-                        color: _isFocused ? AppColors.accentViolet : AppColors.textHint,
+                        color: _isFocused
+                            ? AppColors.accentViolet
+                            : AppColors.textHint,
                         size: 20,
                       ),
                     )

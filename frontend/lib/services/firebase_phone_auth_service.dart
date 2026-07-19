@@ -3,27 +3,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../utils/constants.dart';
 
 /// Callback types for Firebase phone verification flow.
-typedef PhoneCodeSentCallback = void Function(
-  String verificationId,
-  int? resendToken,
-);
+typedef PhoneCodeSentCallback =
+    void Function(String verificationId, int? resendToken);
 
-typedef PhoneVerificationFailedCallback = void Function(
-  FirebaseAuthException exception,
-);
+typedef PhoneVerificationFailedCallback =
+    void Function(FirebaseAuthException exception);
 
-typedef PhoneVerificationCompletedCallback = void Function(
-  PhoneAuthCredential credential,
-);
+typedef PhoneVerificationCompletedCallback =
+    void Function(PhoneAuthCredential credential);
 
-typedef PhoneCodeAutoRetrievalTimeoutCallback = void Function(
-  String verificationId,
-);
+typedef PhoneCodeAutoRetrievalTimeoutCallback =
+    void Function(String verificationId);
 
 /// Reusable service for Firebase Phone Authentication.
 class FirebasePhoneAuthService {
   FirebasePhoneAuthService({FirebaseAuth? auth})
-      : _auth = auth ?? FirebaseAuth.instance;
+    : _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseAuth _auth;
 
@@ -66,9 +61,7 @@ class FirebasePhoneAuthService {
   }
 
   /// Signs in with the given phone auth credential.
-  Future<UserCredential> signInWithCredential(
-    PhoneAuthCredential credential,
-  ) {
+  Future<UserCredential> signInWithCredential(PhoneAuthCredential credential) {
     return _auth.signInWithCredential(credential);
   }
 

@@ -7,10 +7,7 @@ import 'login_screen.dart';
 class AdminDashboard extends StatefulWidget {
   final UserModel user;
 
-  const AdminDashboard({
-    super.key,
-    required this.user,
-  });
+  const AdminDashboard({super.key, required this.user});
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -23,7 +20,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.primaryMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           'Are you sure you want to end your session?',
           style: TextStyle(color: AppColors.textSecondary),
@@ -31,12 +31,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textHint)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textHint),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               Navigator.of(context).pop();
@@ -48,7 +53,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 );
               }
             },
-            child: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -63,15 +74,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -80,7 +92,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         CircleAvatar(
                           radius: 20,
                           backgroundColor: Colors.amber.withOpacity(0.15),
-                          child: const Icon(Icons.admin_panel_settings, color: Colors.amber),
+                          child: const Icon(
+                            Icons.admin_panel_settings,
+                            color: Colors.amber,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Column(
@@ -125,9 +140,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       // Metric card rows
                       Row(
                         children: [
-                          _buildStatCard('Total Users', '1,280', Icons.people_outline, AppColors.accentBlue),
+                          _buildStatCard(
+                            'Total Users',
+                            '1,280',
+                            Icons.people_outline,
+                            AppColors.accentBlue,
+                          ),
                           const SizedBox(width: 16),
-                          _buildStatCard('Complaints', '4 Pending', Icons.feedback_outlined, AppColors.error),
+                          _buildStatCard(
+                            'Complaints',
+                            '4 Pending',
+                            Icons.feedback_outlined,
+                            AppColors.error,
+                          ),
                         ],
                       ),
 
@@ -142,8 +167,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       const SizedBox(height: 12),
 
-                      _buildReportedUserCard('Ramesh Sharma', 'Worker', 'Spamming service pricing details', '3 Reports'),
-                      _buildReportedUserCard('Amit Verma', 'Worker', 'Late arrival/No response twice', '2 Reports'),
+                      _buildReportedUserCard(
+                        'Ramesh Sharma',
+                        'Worker',
+                        'Spamming service pricing details',
+                        '3 Reports',
+                      ),
+                      _buildReportedUserCard(
+                        'Amit Verma',
+                        'Worker',
+                        'Late arrival/No response twice',
+                        '2 Reports',
+                      ),
 
                       const SizedBox(height: 40),
                     ],
@@ -157,7 +192,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -185,10 +225,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             Text(
               title,
-              style: const TextStyle(
-                color: AppColors.textHint,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: AppColors.textHint, fontSize: 12),
             ),
           ],
         ),
@@ -196,7 +233,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  Widget _buildReportedUserCard(String name, String role, String reason, String count) {
+  Widget _buildReportedUserCard(
+    String name,
+    String role,
+    String reason,
+    String count,
+  ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -248,10 +290,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           const SizedBox(height: 6),
           Text(
             'Reason: $reason',
-            style: const TextStyle(
-              color: AppColors.textHint,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: AppColors.textHint, fontSize: 13),
           ),
           const SizedBox(height: 16),
           Row(

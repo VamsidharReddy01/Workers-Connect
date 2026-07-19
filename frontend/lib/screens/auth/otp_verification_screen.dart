@@ -73,8 +73,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   Future<void> _handleAutoVerification(PhoneAuthCredential credential) async {
     setState(() => _isLoading = true);
     try {
-      final credentialResult =
-          await _phoneAuthService.signInWithCredential(credential);
+      final credentialResult = await _phoneAuthService.signInWithCredential(
+        credential,
+      );
       final user = credentialResult.user;
       if (user != null) {
         await _completeSignIn(user);
@@ -142,9 +143,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         print("=================================");
         if (!mounted) return;
         setState(() => _isResending = false);
-        _showSnackBar(
-          e.message ?? 'Failed to resend OTP. Please try again.',
-        );
+        _showSnackBar(e.message ?? 'Failed to resend OTP. Please try again.');
       },
       onVerificationCompleted: (credential) {
         _handleAutoVerification(credential);

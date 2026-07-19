@@ -172,6 +172,10 @@ class AuthService {
     return await _sessionStore.getUser();
   }
 
+  Future<void> saveUser(UserModel user) async {
+    await _sessionStore.saveUser(user);
+  }
+
   /// Clears all stored tokens and user data.
   Future<void> logout() async {
     await _sessionStore.clear();

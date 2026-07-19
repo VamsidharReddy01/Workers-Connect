@@ -33,9 +33,8 @@ class WorkerProfileModel {
     final images = imagesJson is List
         ? imagesJson
               .map(
-                (item) => WorkerWorkImageModel.fromJson(
-                  item as Map<String, dynamic>,
-                ),
+                (item) =>
+                    WorkerWorkImageModel.fromJson(item as Map<String, dynamic>),
               )
               .toList()
         : <WorkerWorkImageModel>[];

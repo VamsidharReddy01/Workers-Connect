@@ -661,15 +661,17 @@ class _CustomerDashboardState extends State<CustomerDashboard> {
                                               fit: BoxFit.cover,
                                               errorBuilder: (_, __, ___) =>
                                                   Center(
-                                                child: Text(
-                                                  avatarText,
-                                                  style: const TextStyle(
-                                                    color: AppColors.lightPrimary,
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
+                                                    child: Text(
+                                                      avatarText,
+                                                      style: const TextStyle(
+                                                        color: AppColors
+                                                            .lightPrimary,
+                                                        fontSize: 18,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
-                                              ),
                                             )
                                           : Center(
                                               child: Text(

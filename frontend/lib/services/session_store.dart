@@ -42,6 +42,10 @@ class SessionStore {
       final email = await _storage.read(key: StorageKeys.email);
       final role = await _storage.read(key: StorageKeys.role);
       final location = await _storage.read(key: StorageKeys.location);
+      final phoneNumber = await _storage.read(key: StorageKeys.phoneNumber);
+      final profilePhotoUrl = await _storage.read(
+        key: StorageKeys.profilePhotoUrl,
+      );
 
       if (id == null || username == null || email == null || role == null) {
         return null;
@@ -53,6 +57,8 @@ class SessionStore {
         email: email,
         role: role,
         location: location,
+        phoneNumber: phoneNumber,
+        profilePhotoUrl: profilePhotoUrl,
       );
       return _user;
     } catch (_) {
@@ -77,8 +83,9 @@ class SessionStore {
         _storage.write(key: StorageKeys.username, value: user.username),
         _storage.write(key: StorageKeys.email, value: user.email),
         _storage.write(key: StorageKeys.role, value: user.role),
-        if (user.location != null)
-          _storage.write(key: StorageKeys.location, value: user.location!),
+        _writeOrDelete(StorageKeys.location, user.location),
+        _writeOrDelete(StorageKeys.phoneNumber, user.phoneNumber),
+        _writeOrDelete(StorageKeys.profilePhotoUrl, user.profilePhotoUrl),
       ]);
     } catch (_) {
       // Web secure storage can fail in some local browser contexts. Keep the
@@ -91,6 +98,28 @@ class SessionStore {
     try {
       await _storage.write(key: StorageKeys.accessToken, value: accessToken);
     } catch (_) {}
+  }
+
+  Future<void> saveUser(UserModel user) async {
+    final accessToken = await getAccessToken();
+    final refreshToken = await getRefreshToken();
+    if (accessToken == null || refreshToken == null) {
+      _user = user;
+      return;
+    }
+    await saveSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      user: user,
+    );
+  }
+
+  Future<void> _writeOrDelete(String key, String? value) async {
+    if (value == null || value.isEmpty) {
+      await _storage.delete(key: key);
+      return;
+    }
+    await _storage.write(key: key, value: value);
   }
 
   Future<void> clear() async {

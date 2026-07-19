@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../screens/admin_dashboard.dart';
 import '../screens/main_navigation.dart';
-import '../screens/worker_dashboard.dart';
+import '../screens/worker_navigation.dart';
 
 /// Shared navigation helpers after authentication.
 class AuthNavigation {
@@ -11,7 +11,7 @@ class AuthNavigation {
 
   static Widget homeForUser(UserModel user) {
     if (user.role == 'worker') {
-      return WorkerDashboard(user: user);
+      return WorkerNavigation(user: user);
     }
     if (user.role == 'admin') {
       return AdminDashboard(user: user);

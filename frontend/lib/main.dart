@@ -12,9 +12,7 @@ import 'utils/constants.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Avoid fetching fonts from fonts.gstatic.com (fails offline / blocked networks).
   if (kIsWeb) {

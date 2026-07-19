@@ -19,7 +19,8 @@ class CustomButton extends StatefulWidget {
   State<CustomButton> createState() => _CustomButtonState();
 }
 
-class _CustomButtonState extends State<CustomButton> with SingleTickerProviderStateMixin {
+class _CustomButtonState extends State<CustomButton>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
@@ -54,7 +55,9 @@ class _CustomButtonState extends State<CustomButton> with SingleTickerProviderSt
           height: 56,
           decoration: BoxDecoration(
             gradient: widget.isLoading ? null : effectiveGradient,
-            color: widget.isLoading ? AppColors.primaryMid.withOpacity(0.5) : null,
+            color: widget.isLoading
+                ? AppColors.primaryMid.withOpacity(0.5)
+                : null,
             borderRadius: BorderRadius.circular(16),
             boxShadow: widget.isLoading
                 ? []

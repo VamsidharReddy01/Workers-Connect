@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import 'auth_service.dart';
+import 'profile_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
+  final ProfileService _profileService = ProfileService();
 
   UserModel? _user;
   bool _isLoading = false;
@@ -25,7 +27,22 @@ class AuthProvider extends ChangeNotifier {
       if (loggedIn) {
         final storedUser = await _authService.getStoredUser();
         if (storedUser != null) {
-          _user = storedUser;
+          final freshUser = await _profileService.getProfile();
+          if (freshUser != null) {
+            await _authService.saveUser(freshUser);
+            _user = freshUser;
+          } else if (_profileService.lastErrorMessage?.toLowerCase().contains(
+                'session expired',
+              ) ??
+              false) {
+            await _authService.logout();
+            _user = null;
+            _isLoading = false;
+            notifyListeners();
+            return false;
+          } else {
+            _user = storedUser;
+          }
           _isLoading = false;
           notifyListeners();
           return true;
@@ -146,5 +163,27 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();
+  }
+
+  Future<void> updateUser(UserModel user) async {
+    _user = user;
+    await _authService.saveUser(user);
+    notifyListeners();
+  }
+
+  Future<bool> refreshUserProfile() async {
+    final freshUser = await _profileService.getProfile();
+    if (freshUser == null) {
+      if (_profileService.lastErrorMessage?.toLowerCase().contains(
+            'session expired',
+          ) ??
+          false) {
+        await logout();
+      }
+      return false;
+    }
+
+    await updateUser(freshUser);
+    return true;
   }
 }

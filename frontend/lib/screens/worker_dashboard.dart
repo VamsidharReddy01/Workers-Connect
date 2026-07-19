@@ -4,7 +4,6 @@ import '../models/booking_model.dart';
 import '../models/user_model.dart';
 import '../models/worker_profile_model.dart';
 import '../services/auth_service.dart';
-import '../services/booking_service.dart';
 import '../services/worker_service.dart';
 import '../utils/constants.dart';
 import 'chat_screen.dart';
@@ -309,25 +308,32 @@ class _WorkerDashboardState extends State<WorkerDashboard> {
                     onPressed: _profile == null
                         ? null
                         : () async {
-                            final updated = await Navigator.of(context).push<bool>(
-                              MaterialPageRoute(
-                                builder: (_) => WorkerProfileSetupScreen(
-                                  user: widget.user,
-                                  existingProfile: _profile,
-                                  isEditing: true,
-                                ),
-                              ),
-                            );
+                            final updated = await Navigator.of(context)
+                                .push<bool>(
+                                  MaterialPageRoute(
+                                    builder: (_) => WorkerProfileSetupScreen(
+                                      user: widget.user,
+                                      existingProfile: _profile,
+                                      isEditing: true,
+                                    ),
+                                  ),
+                                );
                             if (updated == true) {
                               await _loadDashboard();
                             }
                           },
-                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF1E212D)),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      color: Color(0xFF1E212D),
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Logout',
                     onPressed: _handleLogout,
-                    icon: const Icon(Icons.logout_rounded, color: AppColors.error),
+                    icon: const Icon(
+                      Icons.logout_rounded,
+                      color: AppColors.error,
+                    ),
                   ),
                 ],
               ),

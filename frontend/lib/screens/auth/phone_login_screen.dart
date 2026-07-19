@@ -55,8 +55,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   Future<void> _handleAutoVerification(PhoneAuthCredential credential) async {
     setState(() => _isLoading = true);
     try {
-      final credentialResult =
-          await _phoneAuthService.signInWithCredential(credential);
+      final credentialResult = await _phoneAuthService.signInWithCredential(
+        credential,
+      );
       final user = credentialResult.user;
       if (user != null) {
         await _completeSignIn(user);
@@ -77,8 +78,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
   Future<void> _sendOtp() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final e164Phone =
-        Validators.formatIndianPhoneE164(_phoneController.text.trim());
+    final e164Phone = Validators.formatIndianPhoneE164(
+      _phoneController.text.trim(),
+    );
 
     setState(() => _isLoading = true);
 

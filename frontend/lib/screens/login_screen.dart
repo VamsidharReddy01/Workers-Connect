@@ -4,10 +4,9 @@ import '../services/auth_provider.dart';
 import '../utils/constants.dart';
 import '../utils/validators.dart';
 import 'admin_dashboard.dart';
-import 'customer_dashboard.dart';
 import 'main_navigation.dart';
 import 'signup_screen.dart';
-import 'worker_dashboard.dart';
+import 'worker_navigation.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,11 +15,12 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   String? _apiError;
   bool _obscurePassword = true;
   String _selectedRole = 'customer'; // 'customer' or 'worker'
@@ -37,13 +37,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
 
-    _slideAnimation = Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     _fadeController.forward();
   }
@@ -73,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     if (success && authProvider.user != null) {
       final user = authProvider.user!;
-      
+
       // Verification of role matching
       if (user.role != _selectedRole) {
         // Automatically switch role tab or warn nicely, but proceed to their actual registered dashboard.
@@ -82,7 +84,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             content: Text('Logging in as registered role: ${user.roleDisplay}'),
             backgroundColor: AppColors.lightPrimary,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       } else {
@@ -97,7 +101,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -105,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       // Role-Based Access Routing
       Widget nextScreen;
       if (user.role == 'worker') {
-        nextScreen = WorkerDashboard(user: user);
+        nextScreen = WorkerNavigation(user: user);
       } else if (user.role == 'admin') {
         nextScreen = AdminDashboard(user: user);
       } else {
@@ -118,7 +124,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       );
     } else {
       setState(() {
-        _apiError = authProvider.errorMessage ?? 'Authentication failed. Please check your credentials.';
+        _apiError =
+            authProvider.errorMessage ??
+            'Authentication failed. Please check your credentials.';
       });
     }
   }
@@ -162,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 20),
-                          
+
                           // Title & Subtitle
                           const Text(
                             'Login',
@@ -221,12 +229,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() => _selectedRole = 'customer'),
+                                          onTap: () => setState(
+                                            () => _selectedRole = 'customer',
+                                          ),
                                           child: Center(
                                             child: Text(
                                               'Customer',
                                               style: TextStyle(
-                                                color: _selectedRole == 'customer'
+                                                color:
+                                                    _selectedRole == 'customer'
                                                     ? AppColors.lightPrimary
                                                     : AppColors.lightTextHint,
                                                 fontSize: 16,
@@ -242,7 +253,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() => _selectedRole = 'worker'),
+                                          onTap: () => setState(
+                                            () => _selectedRole = 'worker',
+                                          ),
                                           child: Center(
                                             child: Text(
                                               'Worker',
@@ -269,15 +282,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           // Error Banner
                           if (_apiError != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.error.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.error.withOpacity(0.3), width: 1),
+                                border: Border.all(
+                                  color: AppColors.error.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: AppColors.error,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
@@ -328,10 +351,14 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               onPressed: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: const Text('Forgot password is not implemented yet.'),
+                                    content: const Text(
+                                      'Forgot password is not implemented yet.',
+                                    ),
                                     backgroundColor: AppColors.lightPrimary,
                                     behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                 );
                               },
@@ -352,7 +379,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              onTap: authProvider.isLoading ? null : _handleLogin,
+                              onTap: authProvider.isLoading
+                                  ? null
+                                  : _handleLogin,
                               child: Container(
                                 height: 56,
                                 width: double.infinity,
@@ -361,7 +390,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.lightPrimary.withOpacity(0.25),
+                                      color: AppColors.lightPrimary.withOpacity(
+                                        0.25,
+                                      ),
                                       blurRadius: 12,
                                       offset: const Offset(0, 6),
                                     ),
@@ -410,7 +441,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   onTap: () {
                                     Navigator.of(context).pushReplacement(
                                       MaterialPageRoute(
-                                        builder: (_) => SignupScreen(initialRole: _selectedRole),
+                                        builder: (_) => SignupScreen(
+                                          initialRole: _selectedRole,
+                                        ),
                                       ),
                                     );
                                   },
@@ -464,11 +497,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _buildSocialIcon('assets/icons/google.png', Icons.g_mobiledata, Colors.red.shade600),
+                              _buildSocialIcon(
+                                'assets/icons/google.png',
+                                Icons.g_mobiledata,
+                                Colors.red.shade600,
+                              ),
                               const SizedBox(width: 20),
-                              _buildSocialIcon('assets/icons/facebook.png', Icons.facebook, Colors.blue.shade800),
+                              _buildSocialIcon(
+                                'assets/icons/facebook.png',
+                                Icons.facebook,
+                                Colors.blue.shade800,
+                              ),
                               const SizedBox(width: 20),
-                              _buildSocialIcon('assets/icons/apple.png', Icons.apple, Colors.black),
+                              _buildSocialIcon(
+                                'assets/icons/apple.png',
+                                Icons.apple,
+                                Colors.black,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 40),
@@ -500,10 +545,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       decoration: BoxDecoration(
         color: AppColors.lightInputFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.lightBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.lightBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.015),
@@ -539,7 +581,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ? GestureDetector(
                   onTap: onTogglePassword,
                   child: Icon(
-                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     color: AppColors.lightTextHint,
                     size: 20,
                   ),
@@ -563,10 +607,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.lightBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.lightBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
@@ -575,11 +616,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ],
       ),
-      child: Icon(
-        iconData,
-        size: 30,
-        color: color,
-      ),
+      child: Icon(iconData, size: 30, color: color),
     );
   }
 }

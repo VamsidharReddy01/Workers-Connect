@@ -7,7 +7,7 @@ import '../utils/validators.dart';
 import 'admin_dashboard.dart';
 import 'login_screen.dart';
 import 'main_navigation.dart';
-import 'worker_dashboard.dart';
+import 'worker_navigation.dart';
 
 class SignupScreen extends StatefulWidget {
   final String initialRole;
@@ -169,7 +169,7 @@ class _SignupScreenState extends State<SignupScreen>
       // Role-Based Access Routing
       Widget nextScreen;
       if (user.role == 'worker') {
-        nextScreen = WorkerDashboard(user: user);
+        nextScreen = WorkerNavigation(user: user);
       } else if (user.role == 'admin') {
         nextScreen = AdminDashboard(user: user);
       } else {

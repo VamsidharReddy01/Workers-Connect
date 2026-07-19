@@ -7,10 +7,7 @@ import 'login_screen.dart';
 class HomeScreen extends StatefulWidget {
   final UserModel user;
 
-  const HomeScreen({
-    super.key,
-    required this.user,
-  });
+  const HomeScreen({super.key, required this.user});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -31,14 +28,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = AuthService();
     final access = await auth.getAccessToken();
     final refresh = await auth.getStoredUser(); // Check secure storage
-    
+
     // Read directly from secure storage for visual proof
-    final rawRefresh = await auth.refreshToken(); // Test if refresh is working, but let's read the storage directly.
-    final storage = auth.getAccessToken(); // Secure storage is encapsulated inside AuthService. Let's make an helper or just show access token prefix.
-    
+    final rawRefresh = await auth
+        .refreshToken(); // Test if refresh is working, but let's read the storage directly.
+    final storage = auth
+        .getAccessToken(); // Secure storage is encapsulated inside AuthService. Let's make an helper or just show access token prefix.
+
     setState(() {
       if (access != null && access.length > 20) {
-        _accessTokenPreview = '${access.substring(0, 10)}...${access.substring(access.length - 10)}';
+        _accessTokenPreview =
+            '${access.substring(0, 10)}...${access.substring(access.length - 10)}';
       } else {
         _accessTokenPreview = access ?? 'No Access Token';
       }
@@ -76,7 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           backgroundColor: success ? AppColors.success : AppColors.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
       if (success) {
@@ -91,7 +93,10 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.primaryMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           'Are you sure you want to end your session? Stored JWT tokens will be wiped completely.',
           style: TextStyle(color: AppColors.textSecondary),
@@ -99,12 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textHint)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textHint),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               Navigator.of(context).pop(); // Close dialog
@@ -116,7 +126,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
             },
-            child: const Text('Logout', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -132,21 +148,26 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: SafeArea(
           child: Column(
             children: [
               // Custom Header App Bar
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.connect_without_contact, color: AppColors.accentViolet, size: 28),
+                        Icon(
+                          Icons.connect_without_contact,
+                          color: AppColors.accentViolet,
+                          size: 28,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Workers Connect',
@@ -160,7 +181,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.logout_rounded, color: AppColors.error, size: 26),
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        color: AppColors.error,
+                        size: 26,
+                      ),
                       tooltip: 'Logout',
                       onPressed: _handleLogout,
                     ),
@@ -187,13 +212,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 shape: BoxShape.circle,
                                 gradient: LinearGradient(
                                   colors: isWorker
-                                      ? [AppColors.accentPink, AppColors.accentViolet]
-                                      : [AppColors.accentViolet, AppColors.accentBlue],
+                                      ? [
+                                          AppColors.accentPink,
+                                          AppColors.accentViolet,
+                                        ]
+                                      : [
+                                          AppColors.accentViolet,
+                                          AppColors.accentBlue,
+                                        ],
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (isWorker ? AppColors.accentPink : AppColors.accentBlue)
-                                        .withOpacity(0.3),
+                                    color:
+                                        (isWorker
+                                                ? AppColors.accentPink
+                                                : AppColors.accentBlue)
+                                            .withOpacity(0.3),
                                     blurRadius: 20,
                                     offset: const Offset(0, 10),
                                   ),
@@ -203,9 +237,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 radius: 55,
                                 backgroundColor: AppColors.primaryMid,
                                 child: Icon(
-                                  isWorker ? Icons.engineering_rounded : Icons.person_rounded,
+                                  isWorker
+                                      ? Icons.engineering_rounded
+                                      : Icons.person_rounded,
                                   size: 55,
-                                  color: isWorker ? AppColors.accentPink : AppColors.accentBlue,
+                                  color: isWorker
+                                      ? AppColors.accentPink
+                                      : AppColors.accentBlue,
                                 ),
                               ),
                             ),
@@ -220,20 +258,30 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
-                                color: (isWorker ? AppColors.accentPink : AppColors.accentViolet)
-                                    .withOpacity(0.15),
+                                color:
+                                    (isWorker
+                                            ? AppColors.accentPink
+                                            : AppColors.accentViolet)
+                                        .withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: isWorker ? AppColors.accentPink : AppColors.accentViolet,
+                                  color: isWorker
+                                      ? AppColors.accentPink
+                                      : AppColors.accentViolet,
                                   width: 1,
                                 ),
                               ),
                               child: Text(
                                 widget.user.roleDisplay,
                                 style: TextStyle(
-                                  color: isWorker ? AppColors.accentPink : Colors.white,
+                                  color: isWorker
+                                      ? AppColors.accentPink
+                                      : Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                   letterSpacing: 0.5,
@@ -250,7 +298,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildSectionHeader('Account Information'),
                       const SizedBox(height: 12),
                       _buildDashboardCard([
-                        _buildInfoRow(Icons.email_outlined, 'Email Address', widget.user.email),
+                        _buildInfoRow(
+                          Icons.email_outlined,
+                          'Email Address',
+                          widget.user.email,
+                        ),
                         const Divider(color: AppColors.cardBorder, height: 1),
                         _buildInfoRow(
                           Icons.perm_identity_outlined,
@@ -262,7 +314,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 24),
 
                       // Secure storage details section
-                      _buildSectionHeader('Secure JWT Tokens (Storage Verification)'),
+                      _buildSectionHeader(
+                        'Secure JWT Tokens (Storage Verification)',
+                      ),
                       const SizedBox(height: 12),
                       _buildDashboardCard([
                         _buildInfoRow(
@@ -284,7 +338,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Action Button to demonstrate token refresh
                       if (_isRefreshingToken)
-                        const CircularProgressIndicator(color: AppColors.accentViolet)
+                        const CircularProgressIndicator(
+                          color: AppColors.accentViolet,
+                        )
                       else
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
@@ -292,13 +348,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             foregroundColor: Colors.white,
                             surfaceTintColor: Colors.transparent,
                             side: const BorderSide(color: AppColors.cardBorder),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 16,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
                           onPressed: _handleTokenRefresh,
-                          icon: const Icon(Icons.autorenew_rounded, color: AppColors.accentBlue),
+                          icon: const Icon(
+                            Icons.autorenew_rounded,
+                            color: AppColors.accentBlue,
+                          ),
                           label: const Text(
                             'Verify & Refresh JWT Access Token',
                             style: TextStyle(fontWeight: FontWeight.w600),
@@ -339,13 +401,16 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.cardBorder, width: 1),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String title, String value, {bool isCode = false}) {
+  Widget _buildInfoRow(
+    IconData icon,
+    String title,
+    String value, {
+    bool isCode = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(

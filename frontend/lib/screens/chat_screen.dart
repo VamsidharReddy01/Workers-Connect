@@ -113,10 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Text(
               widget.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             if (widget.subtitle != null)
               Text(
@@ -134,7 +131,9 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2.5))
+                ? const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  )
                 : _messages.isEmpty
                 ? const Center(
                     child: Text(

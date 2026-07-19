@@ -10,11 +10,7 @@ class MainNavigation extends StatefulWidget {
   final UserModel user;
   final int initialIndex;
 
-  const MainNavigation({
-    super.key,
-    required this.user,
-    this.initialIndex = 0,
-  });
+  const MainNavigation({super.key, required this.user, this.initialIndex = 0});
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -53,15 +49,12 @@ class _MainNavigationState extends State<MainNavigation> {
       ),
       BookingsScreen(key: _bookingsKey, user: widget.user),
       MessagesScreen(key: _messagesKey, user: widget.user),
-      const ProfileScreen(),
+      ProfileScreen(initialUser: widget.user),
     ];
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [

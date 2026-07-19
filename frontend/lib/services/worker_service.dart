@@ -12,10 +12,7 @@ class PortfolioUploadFile {
   final String filename;
   final Uint8List bytes;
 
-  const PortfolioUploadFile({
-    required this.filename,
-    required this.bytes,
-  });
+  const PortfolioUploadFile({required this.filename, required this.bytes});
 }
 
 class WorkerService {
@@ -71,7 +68,9 @@ class WorkerService {
     if (result.success && result.data != null) {
       final list = result.data!['list'] as List;
       return list
-          .map((item) => WorkerProfileModel.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => WorkerProfileModel.fromJson(item as Map<String, dynamic>),
+          )
           .toList();
     }
     return [];
@@ -174,9 +173,8 @@ class WorkerService {
       if (list is List) {
         return list
             .map(
-              (item) => WorkerWorkImageModel.fromJson(
-                item as Map<String, dynamic>,
-              ),
+              (item) =>
+                  WorkerWorkImageModel.fromJson(item as Map<String, dynamic>),
             )
             .toList();
       }

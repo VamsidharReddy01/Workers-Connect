@@ -134,8 +134,9 @@ class MessagesScreenState extends State<MessagesScreen> {
                   return ListTile(
                     onTap: () => _openChat(conversation),
                     leading: CircleAvatar(
-                      backgroundColor:
-                          AppColors.lightPrimary.withValues(alpha: 0.1),
+                      backgroundColor: AppColors.lightPrimary.withValues(
+                        alpha: 0.1,
+                      ),
                       child: Text(
                         conversation.otherPartyName.isNotEmpty
                             ? conversation.otherPartyName[0].toUpperCase()

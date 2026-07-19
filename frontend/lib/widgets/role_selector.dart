@@ -64,14 +64,18 @@ class RoleSelector extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.person_outline,
-                        color: !isWorker ? AppColors.accentBlue : AppColors.textHint,
+                        color: !isWorker
+                            ? AppColors.accentBlue
+                            : AppColors.textHint,
                         size: 28,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Customer',
                         style: TextStyle(
-                          color: !isWorker ? Colors.white : AppColors.textSecondary,
+                          color: !isWorker
+                              ? Colors.white
+                              : AppColors.textSecondary,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -114,14 +118,18 @@ class RoleSelector extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.engineering_outlined,
-                        color: isWorker ? AppColors.accentPink : AppColors.textHint,
+                        color: isWorker
+                            ? AppColors.accentPink
+                            : AppColors.textHint,
                         size: 28,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Worker',
                         style: TextStyle(
-                          color: isWorker ? Colors.white : AppColors.textSecondary,
+                          color: isWorker
+                              ? Colors.white
+                              : AppColors.textSecondary,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),

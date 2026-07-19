@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Avg, Count, Min, Q, Sum
@@ -117,6 +118,7 @@ class WorkerProfileDetailView(APIView):
     API View to retrieve and create/update the worker's own profile (specialty/category, price).
     """
     permission_classes = [IsAuthenticated]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     
     def get(self, request):
         try:
@@ -151,6 +153,11 @@ class WorkerProfileDetailView(APIView):
                     'bio': serializer.validated_data.get('bio', ''),
                 }
             )
+            user_data = serializer.validated_data.get('user', {})
+            if user_data:
+                for attr, value in user_data.items():
+                    setattr(request.user, attr, value)
+                request.user.save()
             profile = (
                 WorkerProfile.objects.select_related('user')
                 .prefetch_related('work_images')

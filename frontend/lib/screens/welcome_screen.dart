@@ -58,13 +58,11 @@ class WelcomeScreen extends StatelessWidget {
                           SizedBox(
                             width: 220,
                             height: 140,
-                            child: CustomPaint(
-                              painter: BridgeLogoPainter(),
-                            ),
+                            child: CustomPaint(painter: BridgeLogoPainter()),
                           ),
-                          
+
                           const SizedBox(height: 12),
-                          
+
                           // Brand Name
                           const Text(
                             'Workers',
@@ -120,9 +118,7 @@ class WelcomeScreen extends StatelessWidget {
                         height: 180,
                         width: double.infinity,
                         margin: const EdgeInsets.only(bottom: 120),
-                        child: CustomPaint(
-                          painter: SkylinePainter(),
-                        ),
+                        child: CustomPaint(painter: SkylinePainter()),
                       ),
                     ),
 
@@ -139,7 +135,9 @@ class WelcomeScreen extends StatelessWidget {
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => const SignupScreen(initialRole: 'customer'),
+                                    builder: (_) => const SignupScreen(
+                                      initialRole: 'customer',
+                                    ),
                                   ),
                                 );
                               },
@@ -151,7 +149,9 @@ class WelcomeScreen extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.lightPrimary.withOpacity(0.3),
+                                      color: AppColors.lightPrimary.withOpacity(
+                                        0.3,
+                                      ),
                                       blurRadius: 15,
                                       offset: const Offset(0, 6),
                                     ),
@@ -180,7 +180,9 @@ class WelcomeScreen extends StatelessWidget {
                               onTap: () {
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
-                                    builder: (_) => const SignupScreen(initialRole: 'worker'),
+                                    builder: (_) => const SignupScreen(
+                                      initialRole: 'worker',
+                                    ),
                                   ),
                                 );
                               },
@@ -196,7 +198,8 @@ class WelcomeScreen extends StatelessWidget {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.lightTextHint.withOpacity(0.05),
+                                      color: AppColors.lightTextHint
+                                          .withOpacity(0.05),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                     ),
@@ -278,7 +281,7 @@ class BridgeLogoPainter extends CustomPainter {
     final orangePaint = Paint()
       ..color = Colors.orange.shade600
       ..style = PaintingStyle.fill;
-    
+
     // Left figure body
     final leftBodyPath = Path()
       ..moveTo(w * 0.18, h * 0.45)
@@ -358,13 +361,23 @@ class BridgeLogoPainter extends CustomPainter {
     for (int i = 1; i <= 7; i++) {
       double t = i / 8.0;
       double x = w * (0.12 + t * 0.76);
-      
+
       // Calculate y values on the quadratic curves to draw clean vertical lines
       double t1 = 0.10 + t * 0.80;
-      double yUpper = h * 0.45 + (1 - t1) * (1 - t1) * 0.0 + 2 * (1 - t1) * t1 * (h * 0.22 - h * 0.45);
-      double yLower = h * 0.55 + (1 - t1) * (1 - t1) * 0.0 + 2 * (1 - t1) * t1 * (h * 0.38 - h * 0.55);
+      double yUpper =
+          h * 0.45 +
+          (1 - t1) * (1 - t1) * 0.0 +
+          2 * (1 - t1) * t1 * (h * 0.22 - h * 0.45);
+      double yLower =
+          h * 0.55 +
+          (1 - t1) * (1 - t1) * 0.0 +
+          2 * (1 - t1) * t1 * (h * 0.38 - h * 0.55);
 
-      canvas.drawLine(Offset(x, yUpper + 10), Offset(x, yLower + 12), cablePaint);
+      canvas.drawLine(
+        Offset(x, yUpper + 10),
+        Offset(x, yLower + 12),
+        cablePaint,
+      );
     }
   }
 

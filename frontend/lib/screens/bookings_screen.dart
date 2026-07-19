@@ -255,8 +255,10 @@ class BookingsScreenState extends State<BookingsScreen> {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final booking = _bookings[index];
-                  final workerName =
-                      booking.worker.user.username.replaceAll('_', ' ');
+                  final workerName = booking.worker.user.username.replaceAll(
+                    '_',
+                    ' ',
+                  );
                   return Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -285,8 +287,9 @@ class BookingsScreenState extends State<BookingsScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: _statusColor(booking.status)
-                                    .withValues(alpha: 0.12),
+                                color: _statusColor(
+                                  booking.status,
+                                ).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
@@ -322,7 +325,10 @@ class BookingsScreenState extends State<BookingsScreen> {
                             if (booking.conversationId != null)
                               OutlinedButton.icon(
                                 onPressed: () => _openChat(booking),
-                                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                                icon: const Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 18,
+                                ),
                                 label: const Text('Chat'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.lightPrimary,

@@ -1,14 +1,71 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
-from .models import User
+from .models import SupportTicket, User
+
+
+def _absolute_media_url(obj, request):
+    if not obj:
+        return None
+    if request is not None:
+        return request.build_absolute_uri(obj.url)
+    return obj.url
 
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_photo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'phone_number', 'location']
+        fields = [
+            'id',
+            'username',
+            'email',
+            'role',
+            'phone_number',
+            'location',
+            'profile_photo',
+            'profile_photo_url',
+        ]
         read_only_fields = ['id', 'role']
+        extra_kwargs = {'profile_photo': {'write_only': True, 'required': False}}
+
+    def get_profile_photo_url(self, obj):
+        if not obj.profile_photo:
+            return None
+        return _absolute_media_url(obj.profile_photo, self.context.get('request'))
+
+    def validate_username(self, value):
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError('Name must be at least 3 characters.')
+        queryset = User.objects.filter(username__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('A user with this name already exists.')
+        return value
+
+    def validate_email(self, value):
+        value = value.strip().lower()
+        queryset = User.objects.filter(email__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+    def validate_phone_number(self, value):
+        if value in (None, ''):
+            return value
+        value = value.strip()
+        queryset = User.objects.filter(phone_number=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('A user with this phone number already exists.')
+        return value
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -96,3 +153,59 @@ class LoginSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate_old_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError('Old password is incorrect.')
+        return value
+
+    def validate(self, attrs):
+        if attrs.get('new_password') != attrs.get('confirm_password'):
+            raise serializers.ValidationError(
+                {'confirm_password': 'Passwords do not match.'}
+            )
+        validate_password(attrs['new_password'], self.context['request'].user)
+        return attrs
+
+    def save(self, **kwargs):
+        user = self.context['request'].user
+        user.set_password(self.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return user
+
+
+class SupportTicketSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id',
+            'subject',
+            'message',
+            'status',
+            'status_display',
+            'admin_note',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'status', 'status_display', 'admin_note', 'created_at', 'updated_at']
+
+    def validate_subject(self, value):
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError('Subject must be at least 3 characters.')
+        return value
+
+    def validate_message(self, value):
+        value = value.strip()
+        if len(value) < 10:
+            raise serializers.ValidationError('Message must be at least 10 characters.')
+        return value

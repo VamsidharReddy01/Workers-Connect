@@ -237,11 +237,11 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                         itemCount: worker.workImages.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.1,
-                        ),
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              childAspectRatio: 1.1,
+                            ),
                         itemBuilder: (context, index) {
                           final image = worker.workImages[index];
                           return ClipRRect(
@@ -254,7 +254,9 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
                                     color: const Color(0xFFF1F3F8),
-                                    child: const Icon(Icons.broken_image_outlined),
+                                    child: const Icon(
+                                      Icons.broken_image_outlined,
+                                    ),
                                   ),
                                 ),
                                 if (image.caption != null &&
@@ -265,7 +267,9 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                                     bottom: 0,
                                     child: Container(
                                       padding: const EdgeInsets.all(8),
-                                      color: Colors.black.withValues(alpha: 0.45),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.45,
+                                      ),
                                       child: Text(
                                         image.caption!,
                                         maxLines: 2,
@@ -312,7 +316,9 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                       ),
                     )
                   : Text(
-                      worker.isOnline ? 'Book ${worker.category}' : 'Currently unavailable',
+                      worker.isOnline
+                          ? 'Book ${worker.category}'
+                          : 'Currently unavailable',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -393,7 +399,11 @@ class _ProfileHeader extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFFFA726), size: 18),
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFFFA726),
+                      size: 18,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       '${worker.rating}',
@@ -404,22 +414,33 @@ class _ProfileHeader extends StatelessWidget {
                     ),
                     Text(
                       ' (${worker.totalReviews} reviews)',
-                      style: const TextStyle(color: Color(0xFF6E7489), fontSize: 13),
+                      style: const TextStyle(
+                        color: Color(0xFF6E7489),
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: (worker.isOnline ? AppColors.success : const Color(0xFFA2A7B8))
-                        .withValues(alpha: 0.12),
+                    color:
+                        (worker.isOnline
+                                ? AppColors.success
+                                : const Color(0xFFA2A7B8))
+                            .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     worker.isOnline ? 'Available now' : 'Offline',
                     style: TextStyle(
-                      color: worker.isOnline ? AppColors.success : const Color(0xFF6E7489),
+                      color: worker.isOnline
+                          ? AppColors.success
+                          : const Color(0xFF6E7489),
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
