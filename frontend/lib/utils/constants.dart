@@ -56,6 +56,7 @@ class ApiConstants {
 
   static String get baseUrl => '$_serverBaseUrl/api/auth';
   static String get signupEndpoint => '$baseUrl/signup/';
+  static String get sendSignupOtpEndpoint => '$baseUrl/signup/send-otp/';
   static String get loginEndpoint => '$baseUrl/login/';
   static String get tokenRefreshEndpoint => '$baseUrl/token/refresh/';
 
@@ -96,6 +97,13 @@ class ApiConstants {
     }
     return '$_serverBaseUrl/$path';
   }
+}
+
+/// OTP-related constants.
+class AuthConstants {
+  static const String indiaCountryCode = '+91';
+  static const int otpLength = 6;
+  static const Duration otpTimeout = Duration(seconds: 60);
 }
 
 /// Secure Storage Keys

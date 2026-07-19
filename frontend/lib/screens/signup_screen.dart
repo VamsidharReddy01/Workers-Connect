@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_provider.dart';
 import '../utils/constants.dart';
 import '../utils/validators.dart';
 import 'admin_dashboard.dart';
-import 'customer_dashboard.dart';
 import 'login_screen.dart';
 import 'main_navigation.dart';
 import 'worker_dashboard.dart';
@@ -17,19 +17,22 @@ class SignupScreen extends StatefulWidget {
   State<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderStateMixin {
+class _SignupScreenState extends State<SignupScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController(); // Full Name in UI
   final _emailController = TextEditingController();
+  final _otpController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
-  
+
   late String _selectedRole;
   String? _apiError;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _otpSent = false;
+  bool _isSendingOtp = false;
 
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
@@ -45,13 +48,15 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 600),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
 
-    _slideAnimation = Tween<Offset>(begin: const Offset(0.0, 0.08), end: Offset.zero).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
-    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0.0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
 
     _fadeController.forward();
   }
@@ -60,80 +65,90 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
   void dispose() {
     _usernameController.dispose();
     _emailController.dispose();
+    _otpController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _phoneController.dispose();
     _locationController.dispose();
     _fadeController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSignup() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _sendOtp() async {
+    final emailError = Validators.validateEmail(_emailController.text);
+    if (emailError != null) {
+      setState(() {
+        _apiError = emailError;
+      });
+      return;
+    }
 
     setState(() {
       _apiError = null;
+      _isSendingOtp = true;
     });
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final success = await authProvider.signup(
-      username: _usernameController.text.trim(),
+    final success = await authProvider.sendSignupOtp(
       email: _emailController.text.trim(),
-      password: _passwordController.text,
-      role: _selectedRole,
-      phoneNumber: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
     );
 
     if (!mounted) return;
 
-    if (success && authProvider.user != null) {
-      final user = authProvider.user!;
-      
-      // Let's also patch the location to the user profile if they supplied one!
-      // This is elegant because the signup API can handle location directly, or we can send it.
-      // Wait, we updated SignupSerializer in the backend to create the user with the location field,
-      // but AuthProvider's signup method doesn't pass the location parameter to AuthService.
-      // Let's double check this: AuthProvider has:
-      // Future<bool> signup({required String username, required String email, required String password, required String role, String? phoneNumber})
-      // Wait! We should verify if we want to update AuthProvider's signup method to pass the location field to AuthService,
-      // or if we can handle location directly.
-      // Let's update `auth_provider.dart` and `auth_service.dart` to support sending the `location` field on registration!
-      // But wait! Is it already supported if we pass it, or do we need to add the parameter?
-      // Yes, we will modify `auth_provider.dart` and `auth_service.dart` to support the location parameter.
-      // For now, let's complete the `signup_screen.dart` structure, and then update provider and service!
-    } else {
-      setState(() {
-        _apiError = authProvider.errorMessage ?? 'Registration failed. Please check your information.';
-      });
+    setState(() {
+      _isSendingOtp = false;
+      _otpSent = success;
+      if (!success) {
+        _apiError =
+            authProvider.errorMessage ??
+            'Could not send OTP. Please try again.';
+      }
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('OTP sent to ${_emailController.text.trim()}'),
+          backgroundColor: AppColors.success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
     }
   }
 
-  // A refined signup submission that passes the location field!
   Future<void> _handleSignupWithLocation() async {
     if (!_formKey.currentState!.validate()) return;
+
+    if (!_otpSent) {
+      setState(() {
+        _apiError = 'Please send and verify the email OTP before registering.';
+      });
+      return;
+    }
 
     setState(() {
       _apiError = null;
     });
 
-    // Let's call the updated AuthProvider.signup including the location field!
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
-    // We will update AuthProvider and AuthService to support location, let's write the code here assuming it is updated!
     final success = await authProvider.signup(
       username: _usernameController.text.trim().replaceAll(' ', '_'),
       email: _emailController.text.trim(),
       password: _passwordController.text,
       role: _selectedRole,
-      phoneNumber: _phoneController.text.trim(),
-      location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+      emailOtp: _otpController.text.trim(),
+      location: _locationController.text.trim().isEmpty
+          ? null
+          : _locationController.text.trim(),
     );
 
     if (!mounted) return;
 
     if (success && authProvider.user != null) {
       final user = authProvider.user!;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -145,7 +160,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
           ),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
 
@@ -165,7 +182,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
       );
     } else {
       setState(() {
-        _apiError = authProvider.errorMessage ?? 'Registration failed. Please check your information.';
+        _apiError =
+            authProvider.errorMessage ??
+            'Registration failed. Please check your information.';
       });
     }
   }
@@ -265,12 +284,15 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() => _selectedRole = 'customer'),
+                                          onTap: () => setState(
+                                            () => _selectedRole = 'customer',
+                                          ),
                                           child: Center(
                                             child: Text(
                                               'Customer',
                                               style: TextStyle(
-                                                color: _selectedRole == 'customer'
+                                                color:
+                                                    _selectedRole == 'customer'
                                                     ? AppColors.lightPrimary
                                                     : AppColors.lightTextHint,
                                                 fontSize: 16,
@@ -286,7 +308,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                                         cursor: SystemMouseCursors.click,
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
-                                          onTap: () => setState(() => _selectedRole = 'worker'),
+                                          onTap: () => setState(
+                                            () => _selectedRole = 'worker',
+                                          ),
                                           child: Center(
                                             child: Text(
                                               'Worker',
@@ -313,15 +337,25 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                           // Error Banner
                           if (_apiError != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
-                                color: AppColors.error.withOpacity(0.08),
+                                color: AppColors.error.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.error.withOpacity(0.3), width: 1),
+                                border: Border.all(
+                                  color: AppColors.error.withValues(alpha: 0.3),
+                                  width: 1,
+                                ),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                                  const Icon(
+                                    Icons.error_outline,
+                                    color: AppColors.error,
+                                    size: 20,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
@@ -349,17 +383,6 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
 
                           const SizedBox(height: 20),
 
-                          // Phone Number Field
-                          _buildTextField(
-                            controller: _phoneController,
-                            hintText: 'Phone Number',
-                            prefixIcon: Icons.phone_outlined,
-                            keyboardType: TextInputType.phone,
-                            validator: Validators.validatePhoneNumber,
-                          ),
-
-                          const SizedBox(height: 20),
-
                           // Email Address Field
                           _buildTextField(
                             controller: _emailController,
@@ -367,7 +390,45 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                             prefixIcon: Icons.email_outlined,
                             keyboardType: TextInputType.emailAddress,
                             validator: Validators.validateEmail,
+                            onChanged: (_) {
+                              if (_otpSent) {
+                                setState(() {
+                                  _otpSent = false;
+                                  _otpController.clear();
+                                });
+                              }
+                            },
                           ),
+
+                          const SizedBox(height: 20),
+
+                          _buildOtpAction(),
+
+                          if (_otpSent) ...[
+                            const SizedBox(height: 20),
+                            _buildTextField(
+                              controller: _otpController,
+                              hintText: 'Email OTP',
+                              prefixIcon: Icons.verified_user_outlined,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(
+                                  AuthConstants.otpLength,
+                                ),
+                              ],
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) {
+                                  return 'Email OTP is required';
+                                }
+                                if (val.trim().length !=
+                                    AuthConstants.otpLength) {
+                                  return 'Enter the ${AuthConstants.otpLength}-digit OTP';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
 
                           const SizedBox(height: 20),
 
@@ -397,13 +458,15 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                             obscureText: _obscureConfirmPassword,
                             onTogglePassword: () {
                               setState(() {
-                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                                _obscureConfirmPassword =
+                                    !_obscureConfirmPassword;
                               });
                             },
-                            validator: (val) => Validators.validateConfirmPassword(
-                              val,
-                              _passwordController.text,
-                            ),
+                            validator: (val) =>
+                                Validators.validateConfirmPassword(
+                                  val,
+                                  _passwordController.text,
+                                ),
                           ),
 
                           const SizedBox(height: 20),
@@ -428,7 +491,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
-                              onTap: authProvider.isLoading ? null : _handleSignupWithLocation,
+                              onTap: authProvider.isLoading
+                                  ? null
+                                  : _handleSignupWithLocation,
                               child: Container(
                                 height: 56,
                                 width: double.infinity,
@@ -437,7 +502,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.lightPrimary.withOpacity(0.25),
+                                      color: AppColors.lightPrimary.withValues(
+                                        alpha: 0.25,
+                                      ),
                                       blurRadius: 12,
                                       offset: const Offset(0, 6),
                                     ),
@@ -516,6 +583,65 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildOtpAction() {
+    final disabled = _isSendingOtp;
+
+    return MouseRegion(
+      cursor: disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: disabled ? null : _sendOtp,
+        child: Container(
+          height: 52,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: _otpSent ? AppColors.success : AppColors.lightPrimary,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: (_otpSent ? AppColors.success : AppColors.lightPrimary)
+                    .withValues(alpha: 0.22),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Center(
+            child: _isSendingOtp
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.4,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _otpSent
+                            ? Icons.check_circle_outline
+                            : Icons.mail_outline,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _otpSent ? 'OTP Sent' : 'Send OTP to Email',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Helper to build text fields matching the styled border/container in Screenshots
   Widget _buildTextField({
     required TextEditingController controller,
@@ -526,18 +652,17 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     VoidCallback? onTogglePassword,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.lightInputFill,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.lightBorder,
-          width: 1.5,
-        ),
+        border: Border.all(color: AppColors.lightBorder, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.015),
+            color: Colors.black.withValues(alpha: 0.015),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -548,6 +673,8 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         obscureText: obscureText,
         keyboardType: keyboardType,
         validator: validator,
+        onChanged: onChanged,
+        inputFormatters: inputFormatters,
         style: const TextStyle(
           color: AppColors.lightTextPrimary,
           fontSize: 15,
@@ -570,7 +697,9 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
               ? GestureDetector(
                   onTap: onTogglePassword,
                   child: Icon(
-                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    obscureText
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     color: AppColors.lightTextHint,
                     size: 20,
                   ),

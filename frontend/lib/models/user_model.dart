@@ -1,3 +1,5 @@
+import 'package:firebase_auth/firebase_auth.dart';
+
 /// Represents an authenticated user from the backend.
 class UserModel {
   final int id;
@@ -15,6 +17,17 @@ class UserModel {
     this.location,
     this.phoneNumber,
   });
+
+  /// Creates a [UserModel] from a signed-in Firebase user.
+  factory UserModel.fromFirebaseUser(User user, {String role = 'customer'}) {
+    return UserModel(
+      id: user.uid.hashCode,
+      username: user.displayName ?? user.phoneNumber ?? 'User',
+      email: user.email ?? '${user.uid}@workersbridge.app',
+      role: role,
+      phoneNumber: user.phoneNumber,
+    );
+  }
 
   /// Creates a [UserModel] from the API JSON response.
   factory UserModel.fromJson(Map<String, dynamic> json) {

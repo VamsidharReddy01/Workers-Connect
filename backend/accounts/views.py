@@ -1,3 +1,10 @@
+import random
+
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import AnonRateThrottle
@@ -5,12 +12,65 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import User
 from .serializers import SignupSerializer, LoginSerializer, UserSerializer
 
 
 class LoginRateThrottle(AnonRateThrottle):
     """Limit login attempts to prevent brute-force attacks."""
     rate = '5/minute'
+
+
+class SignupOtpRateThrottle(AnonRateThrottle):
+    """Limit signup OTP requests."""
+    rate = '3/minute'
+
+
+class SendSignupOtpView(APIView):
+    """
+    Sends a short-lived OTP to the email address used on the signup page.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [SignupOtpRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        email = (request.data.get('email') or '').strip().lower()
+
+        if not email:
+            return Response(
+                {'errors': {'email': ['Email is required.']}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {'errors': {'email': ['Enter a valid email address.']}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if User.objects.filter(email__iexact=email).exists():
+            return Response(
+                {'errors': {'email': ['A user with this email already exists.']}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        otp = f'{random.randint(0, 999999):06d}'
+        cache.set(f'signup_email_otp:{email}', otp, timeout=10 * 60)
+
+        send_mail(
+            subject='Workers Bridge signup OTP',
+            message=f'Your Workers Bridge signup OTP is {otp}. It expires in 10 minutes.',
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[email],
+            fail_silently=False,
+        )
+
+        return Response(
+            {'message': 'OTP sent to your email.'},
+            status=status.HTTP_200_OK
+        )
 
 
 class SignupView(APIView):
@@ -23,6 +83,7 @@ class SignupView(APIView):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            cache.delete(f'signup_email_otp:{user.email.lower()}')
             refresh = RefreshToken.for_user(user)
             
             return Response({

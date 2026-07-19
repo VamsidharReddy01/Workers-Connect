@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.core.cache import cache
 from .models import User
 
 
@@ -20,10 +21,11 @@ class SignupSerializer(serializers.ModelSerializer):
         }
     )
     email = serializers.EmailField(required=True)
+    email_otp = serializers.CharField(write_only=True, min_length=6, max_length=6)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role', 'phone_number', 'location']
+        fields = ['username', 'email', 'password', 'role', 'phone_number', 'location', 'email_otp']
         extra_kwargs = {
             'role': {'required': False},
             'phone_number': {'required': False},
@@ -42,7 +44,23 @@ class SignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A user with this username already exists.')
         return value
 
+    def validate(self, attrs):
+        email = attrs.get('email', '').lower()
+        otp = attrs.get('email_otp')
+        cached_otp = cache.get(f'signup_email_otp:{email}')
+
+        if cached_otp is None:
+            raise serializers.ValidationError(
+                {'email_otp': 'OTP expired or not requested. Please send a new OTP.'}
+            )
+
+        if str(cached_otp) != str(otp):
+            raise serializers.ValidationError({'email_otp': 'Invalid OTP.'})
+
+        return attrs
+
     def create(self, validated_data):
+        validated_data.pop('email_otp', None)
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],

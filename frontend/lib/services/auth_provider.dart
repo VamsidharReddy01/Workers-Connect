@@ -68,6 +68,7 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
     required String role,
+    required String emailOtp,
     String? phoneNumber,
     String? location,
   }) async {
@@ -80,6 +81,7 @@ class AuthProvider extends ChangeNotifier {
       email: email,
       password: password,
       role: role,
+      emailOtp: emailOtp,
       phoneNumber: phoneNumber,
       location: location,
     );
@@ -95,6 +97,24 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> sendSignupOtp({required String email}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _authService.sendSignupOtp(email: email);
+
+    _isLoading = false;
+    if (result.success) {
+      notifyListeners();
+      return true;
+    }
+
+    _errorMessage = result.error ?? 'Could not send OTP. Please try again.';
+    notifyListeners();
+    return false;
   }
 
   /// Manual / Automatic JWT access token refresh handler.

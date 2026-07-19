@@ -1,3 +1,5 @@
+from django.core import mail
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -5,14 +7,23 @@ from rest_framework.test import APITestCase
 from .models import User
 
 
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 class AuthViewsTests(APITestCase):
     def test_signup_returns_tokens_and_user(self):
+        otp_response = self.client.post(reverse('send_signup_otp'), {
+            'email': 'newuser@example.com',
+        }, format='json')
+        self.assertEqual(otp_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 1)
+        otp = mail.outbox[0].body.split(' is ')[1].split('.')[0]
+
         response = self.client.post(reverse('signup'), {
             'username': 'newuser',
             'email': 'newuser@example.com',
             'password': 'strongpass123',
             'role': 'customer',
             'phone_number': '+919876543210',
+            'email_otp': otp,
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -21,6 +32,17 @@ class AuthViewsTests(APITestCase):
         self.assertEqual(response.data['user']['username'], 'newuser')
         self.assertEqual(response.data['user']['email'], 'newuser@example.com')
         self.assertEqual(response.data['user']['role'], 'customer')
+
+    def test_signup_requires_email_otp(self):
+        response = self.client.post(reverse('signup'), {
+            'username': 'nootpuser',
+            'email': 'nootp@example.com',
+            'password': 'strongpass123',
+            'role': 'customer',
+        }, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(User.objects.filter(email='nootp@example.com').exists())
 
     def test_login_returns_tokens_and_user(self):
         User.objects.create_user(

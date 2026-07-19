@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "460379657818",
+    "project_id": "workerapp-c442a",
+    "storage_bucket": "workerapp-c442a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:460379657818:android:c56bdecd0e88378dbe6a63",
+        "android_client_info": {
+          "package_name": "com.example.frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAq-LMkONe342gBBrIS68T-zFnCYWePNkc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

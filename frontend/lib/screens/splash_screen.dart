@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/auth_provider.dart';
+import '../utils/auth_navigation.dart';
 import '../utils/constants.dart';
-import 'admin_dashboard.dart';
-import 'customer_dashboard.dart';
-import 'login_screen.dart';
-import 'main_navigation.dart';
 import 'welcome_screen.dart';
-import 'worker_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,7 +13,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -48,42 +46,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final hasActiveSession = await authProvider.checkSession();
+    final hasSession = await authProvider.checkSession();
 
     if (!mounted) return;
 
-    if (hasActiveSession && authProvider.user != null) {
-      final user = authProvider.user!;
-      
-      // Role-Based Access Routing (Priority 3)
-      Widget nextScreen;
-      if (user.role == 'worker') {
-        nextScreen = WorkerDashboard(user: user);
-      } else if (user.role == 'admin') {
-        nextScreen = AdminDashboard(user: user);
-      } else {
-        nextScreen = MainNavigation(user: user);
-      }
-
+    if (hasSession && authProvider.user != null) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => nextScreen,
-          transitionsBuilder: (_, animation, __, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              AuthNavigation.homeForUser(authProvider.user!),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
     } else {
-      // Route to Welcome Screen
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const WelcomeScreen(),
-          transitionsBuilder: (_, animation, __, child) => FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const WelcomeScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 500),
         ),
       );
@@ -94,9 +77,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppColors.backgroundGradient,
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: Center(
           child: FadeTransition(
             opacity: _fadeAnimation,
@@ -111,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     gradient: AppColors.buttonGradient,
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.accentViolet.withOpacity(0.3),
+                        color: AppColors.accentViolet.withValues(alpha: 0.3),
                         blurRadius: 30,
                         offset: const Offset(0, 10),
                       ),

@@ -57,4 +57,45 @@ class Validators {
     }
     return null;
   }
+
+  static final RegExp _indianMobileRegex = RegExp(r'^[6-9]\d{9}$');
+
+  /// Validates a 10-digit Indian mobile number (with optional 91 prefix).
+  static String? validateIndianPhoneNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone number is required';
+    }
+
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10 && _indianMobileRegex.hasMatch(digits)) {
+      return null;
+    }
+    if (digits.length == 12 &&
+        digits.startsWith('91') &&
+        _indianMobileRegex.hasMatch(digits.substring(2))) {
+      return null;
+    }
+
+    return 'Enter a valid 10-digit Indian mobile number';
+  }
+
+  /// Formats a validated Indian number to E.164 (+91XXXXXXXXXX).
+  static String formatIndianPhoneE164(String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return '+$digits';
+    }
+    return '+91$digits';
+  }
+
+  /// Validates a 6-digit OTP code.
+  static String? validateOtp(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'OTP is required';
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(value.trim())) {
+      return 'Enter a valid 6-digit OTP';
+    }
+    return null;
+  }
 }

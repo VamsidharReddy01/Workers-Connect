@@ -41,7 +41,9 @@ class ApiService {
 
       // 1. Fetch access token from storage if not explicitly provided
       var token = accessToken;
-      token ??= await _sessionStore.getAccessToken();
+      if (!_isPublicAuthPost(url)) {
+        token ??= await _sessionStore.getAccessToken();
+      }
 
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
@@ -146,7 +148,7 @@ class ApiService {
       if (response.statusCode == 401 &&
           !isRetry &&
           url != ApiConstants.tokenRefreshEndpoint &&
-          url != ApiConstants.loginEndpoint) {
+          !_isPublicAuthPost(url)) {
         final refreshSuccess = await _attemptSilentRefresh();
         if (refreshSuccess) {
           // Retry original request with the new refreshed access token
@@ -332,6 +334,12 @@ class ApiService {
         'python manage.py runserver in the backend folder.';
   }
 
+  bool _isPublicAuthPost(String url) {
+    return url == ApiConstants.loginEndpoint ||
+        url == ApiConstants.signupEndpoint ||
+        url == ApiConstants.sendSignupOtpEndpoint;
+  }
+
   /// Attempts to perform a silent refresh behind the scenes when a 401 is hit.
   Future<bool> _attemptSilentRefresh() async {
     try {
@@ -390,13 +398,20 @@ class ApiService {
       }
       request.files.addAll(files);
 
-      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
       final response = await http.Response.fromStream(streamed);
 
       if (response.statusCode == 401 && !isRetry) {
         final refreshSuccess = await _attemptSilentRefresh();
         if (refreshSuccess) {
-          return postMultipart(url, files: files, fields: fields, isRetry: true);
+          return postMultipart(
+            url,
+            files: files,
+            fields: fields,
+            isRetry: true,
+          );
         }
         return const ApiResult(
           success: false,

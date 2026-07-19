@@ -25,6 +25,7 @@ class AuthService {
     required String email,
     required String password,
     required String role,
+    required String emailOtp,
     String? phoneNumber,
     String? location,
   }) async {
@@ -33,6 +34,7 @@ class AuthService {
       'email': email.trim().toLowerCase(),
       'password': password,
       'role': role,
+      'email_otp': emailOtp.trim(),
     };
     if (phoneNumber != null && phoneNumber.trim().isNotEmpty) {
       body['phone_number'] = phoneNumber.trim();
@@ -54,6 +56,21 @@ class AuthService {
     }
 
     return (success: false, user: null, error: result.errorMessage);
+  }
+
+  Future<({bool success, String? error})> sendSignupOtp({
+    required String email,
+  }) async {
+    final result = await _api.post(
+      ApiConstants.sendSignupOtpEndpoint,
+      body: {'email': email.trim().toLowerCase()},
+    );
+
+    if (result.success) {
+      return (success: true, error: null);
+    }
+
+    return (success: false, error: result.errorMessage);
   }
 
   // ─── LOGIN ──────────────────────────────────────────────
