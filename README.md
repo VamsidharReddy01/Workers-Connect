@@ -6,8 +6,6 @@ Built using **Django (Backend) + Flutter (Frontend) + PostgreSQL (Database)**.
 
 ---
 
-##  Features
-
 * 🔐 User Authentication (JWT-based)
 * 👷 Worker Registration & Profiles
 * 🛠️ Service Categories (Electrician, Plumber, etc.)
