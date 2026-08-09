@@ -29,6 +29,8 @@ from .serializers import (
 )
 
 MAX_PORTFOLIO_IMAGES = 8
+MAX_WORK_IMAGE_SIZE = 5 * 1024 * 1024
+ALLOWED_WORK_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
 
 DEFAULT_JOB_CATEGORIES = [
     'Electrician',
@@ -606,6 +608,18 @@ class WorkerWorkImageView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        for upload in uploads:
+            if upload.size > MAX_WORK_IMAGE_SIZE:
+                return Response(
+                    {'errors': {'images': ['Each image must be 5 MB or smaller.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if getattr(upload, 'content_type', '') not in ALLOWED_WORK_IMAGE_TYPES:
+                return Response(
+                    {'errors': {'images': ['Upload JPG, PNG, or WebP images only.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
         caption = request.data.get('caption', '')
         created = []

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Booking, BookingReview, Conversation, JobCategory, Message, WorkerProfile, WorkerWorkImage
+from accounts.serializers import validate_latitude, validate_longitude
 from accounts.serializers import UserSerializer
 
 
@@ -130,6 +131,9 @@ class BookingSerializer(serializers.ModelSerializer):
             'service_category',
             'description',
             'address',
+            'service_latitude',
+            'service_longitude',
+            'location_permission_granted',
             'scheduled_at',
             'total_amount',
             'status',
@@ -164,6 +168,9 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             'service_category',
             'description',
             'address',
+            'service_latitude',
+            'service_longitude',
+            'location_permission_granted',
             'scheduled_at',
             'total_amount',
         ]
@@ -177,6 +184,21 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError('Total amount must be greater than zero.')
         return value
+
+    def validate_service_latitude(self, value):
+        return validate_latitude(value)
+
+    def validate_service_longitude(self, value):
+        return validate_longitude(value)
+
+    def validate(self, attrs):
+        latitude = attrs.get('service_latitude')
+        longitude = attrs.get('service_longitude')
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                {'location': 'Service latitude and longitude must be provided together.'}
+            )
+        return attrs
 
     def create(self, validated_data):
         worker_id = validated_data.pop('worker_id')

@@ -1,4 +1,5 @@
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
@@ -97,3 +98,65 @@ class AuthViewsTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data['error'], 'Refresh token is required')
+
+    def test_profile_accepts_valid_profile_photo(self):
+        user = User.objects.create_user(
+            username='photouser',
+            email='photouser@example.com',
+            password='strongpass123',
+            role='customer',
+        )
+        self.client.force_authenticate(user=user)
+        image = SimpleUploadedFile(
+            'avatar.png',
+            b'\x89PNG\r\n\x1a\n' + b'0' * 128,
+            content_type='image/png',
+        )
+
+        response = self.client.patch(reverse('profile'), {
+            'username': 'photouser',
+            'email': 'photouser@example.com',
+            'profile_photo': image,
+        }, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.data['profile_photo_url'])
+
+    def test_profile_rejects_invalid_profile_photo_type(self):
+        user = User.objects.create_user(
+            username='badphotouser',
+            email='badphoto@example.com',
+            password='strongpass123',
+            role='customer',
+        )
+        self.client.force_authenticate(user=user)
+        upload = SimpleUploadedFile(
+            'avatar.txt',
+            b'not an image',
+            content_type='text/plain',
+        )
+
+        response = self.client.patch(reverse('profile'), {
+            'profile_photo': upload,
+        }, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_support_ticket_create_and_list(self):
+        user = User.objects.create_user(
+            username='supportuser',
+            email='support@example.com',
+            password='strongpass123',
+            role='customer',
+        )
+        self.client.force_authenticate(user=user)
+
+        create_response = self.client.post(reverse('support_tickets'), {
+            'subject': 'Booking issue',
+            'message': 'I need help with a booking status update.',
+        }, format='json')
+        list_response = self.client.get(reverse('support_tickets'))
+
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data['list']), 1)

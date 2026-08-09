@@ -2,7 +2,7 @@
 
 A full-stack service marketplace application where users can find and book skilled workers like electricians, plumbers, carpenters, etc.
 
-Built using **Django (Backend) + Flutter (Frontend) + PostgreSQL (Database)**.
+Built using **Django (Backend) + React/Vite Web + Expo React Native Mobile + PostgreSQL (Database)**.
 
 ---
 
@@ -11,7 +11,8 @@ Built using **Django (Backend) + Flutter (Frontend) + PostgreSQL (Database)**.
 * 🛠️ Service Categories (Electrician, Plumber, etc.)
 * 📅 Booking System
 * ⭐ Ratings & Reviews
-* 📱 Cross-platform Mobile App (Flutter)
+* 🌐 React web app
+* 📱 Expo React Native mobile app
 
 ---
 
@@ -26,8 +27,10 @@ Built using **Django (Backend) + Flutter (Frontend) + PostgreSQL (Database)**.
 
 ### Frontend
 
-* Flutter
-* Dart
+* React
+* TypeScript
+* Vite
+* Expo React Native
 
 ### Tools
 
@@ -42,7 +45,8 @@ Built using **Django (Backend) + Flutter (Frontend) + PostgreSQL (Database)**.
 ```
 workers-app/
 ├── backend/        # Django API
-├── frontend/       # Flutter app
+├── web/            # React + Vite web app
+├── mobile/         # Expo React Native app
 ├── docs/           # Documentation
 ```
 
@@ -126,12 +130,24 @@ http://127.0.0.1:8000/
 
 ---
 
-## 📱 Frontend Setup (Flutter)
+## 🌐 Web Setup (React + Vite)
 
 ```
-cd ../frontend
-flutter pub get
-flutter run
+cd ../web
+npm install
+npm run dev
+```
+
+Set `VITE_API_BASE_URL` in `web/.env` if Django is not running at `http://127.0.0.1:8000`.
+
+---
+
+## 📱 Mobile Setup (Expo React Native)
+
+```
+cd ../mobile
+npm install
+npm start
 ```
 
 ---

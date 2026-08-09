@@ -2,7 +2,27 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
+from django.utils import timezone
 from .models import SupportTicket, User
+
+MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024
+ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+
+
+def validate_latitude(value):
+    if value in (None, ''):
+        return None
+    if value < -90 or value > 90:
+        raise serializers.ValidationError('Latitude must be between -90 and 90.')
+    return value
+
+
+def validate_longitude(value):
+    if value in (None, ''):
+        return None
+    if value < -180 or value > 180:
+        raise serializers.ValidationError('Longitude must be between -180 and 180.')
+    return value
 
 
 def _absolute_media_url(obj, request):
@@ -25,10 +45,14 @@ class UserSerializer(serializers.ModelSerializer):
             'role',
             'phone_number',
             'location',
+            'latitude',
+            'longitude',
+            'location_permission_granted',
+            'location_updated_at',
             'profile_photo',
             'profile_photo_url',
         ]
-        read_only_fields = ['id', 'role']
+        read_only_fields = ['id', 'role', 'location_updated_at']
         extra_kwargs = {'profile_photo': {'write_only': True, 'required': False}}
 
     def get_profile_photo_url(self, obj):
@@ -67,6 +91,41 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A user with this phone number already exists.')
         return value
 
+    def validate_profile_photo(self, value):
+        if value is None:
+            return value
+        if value.size > MAX_PROFILE_PHOTO_SIZE:
+            raise serializers.ValidationError('Profile photo must be 5 MB or smaller.')
+        content_type = getattr(value, 'content_type', '')
+        if content_type not in ALLOWED_IMAGE_TYPES:
+            raise serializers.ValidationError('Upload a JPG, PNG, or WebP image.')
+        return value
+
+    def validate_latitude(self, value):
+        return validate_latitude(value)
+
+    def validate_longitude(self, value):
+        return validate_longitude(value)
+
+    def validate(self, attrs):
+        latitude = attrs.get('latitude', getattr(self.instance, 'latitude', None))
+        longitude = attrs.get('longitude', getattr(self.instance, 'longitude', None))
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                {'location': 'Latitude and longitude must be provided together.'}
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        new_photo = validated_data.get('profile_photo')
+        old_photo = instance.profile_photo if new_photo and instance.profile_photo else None
+        if 'latitude' in validated_data or 'longitude' in validated_data:
+            validated_data['location_updated_at'] = timezone.now()
+        instance = super().update(instance, validated_data)
+        if old_photo and old_photo.name != instance.profile_photo.name:
+            old_photo.delete(save=False)
+        return instance
+
 
 class SignupSerializer(serializers.ModelSerializer):
 
@@ -82,11 +141,25 @@ class SignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role', 'phone_number', 'location', 'email_otp']
+        fields = [
+            'username',
+            'email',
+            'password',
+            'role',
+            'phone_number',
+            'location',
+            'latitude',
+            'longitude',
+            'location_permission_granted',
+            'email_otp',
+        ]
         extra_kwargs = {
             'role': {'required': False},
             'phone_number': {'required': False},
             'location': {'required': False},
+            'latitude': {'required': False},
+            'longitude': {'required': False},
+            'location_permission_granted': {'required': False},
         }
 
     def validate_email(self, value):
@@ -101,10 +174,23 @@ class SignupSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('A user with this username already exists.')
         return value
 
+    def validate_latitude(self, value):
+        return validate_latitude(value)
+
+    def validate_longitude(self, value):
+        return validate_longitude(value)
+
     def validate(self, attrs):
         email = attrs.get('email', '').lower()
         otp = attrs.get('email_otp')
+        latitude = attrs.get('latitude')
+        longitude = attrs.get('longitude')
         cached_otp = cache.get(f'signup_email_otp:{email}')
+
+        if (latitude is None) != (longitude is None):
+            raise serializers.ValidationError(
+                {'location': 'Latitude and longitude must be provided together.'}
+            )
 
         if cached_otp is None:
             raise serializers.ValidationError(
@@ -125,6 +211,12 @@ class SignupSerializer(serializers.ModelSerializer):
             role=validated_data.get('role', 'customer'),
             phone_number=validated_data.get('phone_number'),
             location=validated_data.get('location'),
+            latitude=validated_data.get('latitude'),
+            longitude=validated_data.get('longitude'),
+            location_permission_granted=validated_data.get('location_permission_granted', False),
+            location_updated_at=timezone.now()
+            if validated_data.get('latitude') is not None and validated_data.get('longitude') is not None
+            else None,
         )
         return user
 

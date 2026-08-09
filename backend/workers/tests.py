@@ -1,8 +1,10 @@
 from django.urls import reverse
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from .models import WorkerProfile
+from .models import Booking, Conversation, Message, WorkerProfile
 
 
 class CustomerBrowseEndpointTests(APITestCase):
@@ -89,3 +91,137 @@ class CustomerBrowseEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['list'], [])
+
+
+class BookingWorkflowTests(APITestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(
+            username='customer_booking',
+            email='customer-booking@example.com',
+            password='password123',
+            role='customer',
+            location='Hyderabad',
+        )
+        self.worker_user = User.objects.create_user(
+            username='worker_booking',
+            email='worker-booking@example.com',
+            password='password123',
+            role='worker',
+            location='Hyderabad',
+        )
+        self.worker = WorkerProfile.objects.create(
+            user=self.worker_user,
+            category='Plumber',
+            price=700,
+            is_online=True,
+        )
+
+    def create_booking(self):
+        self.client.force_authenticate(user=self.customer)
+        return self.client.post(reverse('customer-booking-create'), {
+            'worker_id': self.worker.id,
+            'service_category': 'Plumber',
+            'description': 'Fix a leaking sink',
+            'address': '123 Home Street',
+            'scheduled_at': timezone.now().isoformat(),
+            'total_amount': '700.00',
+        }, format='json')
+
+    def test_customer_can_create_booking_and_conversation(self):
+        response = self.create_booking()
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Booking.objects.count(), 1)
+        self.assertEqual(Conversation.objects.count(), 1)
+        self.assertEqual(Message.objects.count(), 1)
+
+    def test_worker_can_update_allowed_booking_status(self):
+        booking_id = self.create_booking().data['id']
+        self.client.force_authenticate(user=self.worker_user)
+
+        response = self.client.patch(reverse('worker-booking-status', args=[booking_id]), {
+            'status': Booking.STATUS_ACCEPTED,
+        }, format='json')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], Booking.STATUS_ACCEPTED)
+
+    def test_customer_can_review_completed_booking_once(self):
+        booking_id = self.create_booking().data['id']
+        booking = Booking.objects.get(id=booking_id)
+        booking.status = Booking.STATUS_COMPLETED
+        booking.save(update_fields=['status'])
+        self.client.force_authenticate(user=self.customer)
+
+        response = self.client.post(reverse('booking-review', args=[booking_id]), {
+            'rating': 5,
+            'feedback': 'Excellent work.',
+        }, format='json')
+        duplicate = self.client.post(reverse('booking-review', args=[booking_id]), {
+            'rating': 5,
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(duplicate.status_code, 400)
+
+    def test_conversation_access_is_limited_to_participants(self):
+        booking_id = self.create_booking().data['id']
+        conversation_id = Booking.objects.get(id=booking_id).conversation.id
+        stranger = User.objects.create_user(
+            username='stranger',
+            email='stranger@example.com',
+            password='password123',
+            role='customer',
+        )
+        self.client.force_authenticate(user=stranger)
+
+        response = self.client.get(reverse('conversation-messages', args=[conversation_id]))
+
+        self.assertEqual(response.status_code, 403)
+
+
+class WorkerPortfolioTests(APITestCase):
+    def setUp(self):
+        self.worker_user = User.objects.create_user(
+            username='portfolio_worker',
+            email='portfolio@example.com',
+            password='password123',
+            role='worker',
+        )
+        self.worker = WorkerProfile.objects.create(
+            user=self.worker_user,
+            category='Carpenter',
+            price=900,
+            is_online=True,
+        )
+        self.client.force_authenticate(user=self.worker_user)
+
+    def test_worker_can_upload_and_delete_portfolio_image(self):
+        image = SimpleUploadedFile(
+            'work.png',
+            b'\x89PNG\r\n\x1a\n' + b'0' * 128,
+            content_type='image/png',
+        )
+
+        upload = self.client.post(reverse('worker-work-images'), {
+            'images': image,
+            'caption': 'Recent work',
+        }, format='multipart')
+        image_id = upload.data['list'][0]['id']
+        delete = self.client.delete(reverse('worker-work-image-delete', args=[image_id]))
+
+        self.assertEqual(upload.status_code, 201)
+        self.assertEqual(delete.status_code, 204)
+
+    def test_worker_portfolio_rejects_invalid_file_type(self):
+        upload = SimpleUploadedFile(
+            'work.txt',
+            b'not an image',
+            content_type='text/plain',
+        )
+
+        response = self.client.post(reverse('worker-work-images'), {
+            'images': upload,
+        }, format='multipart')
+
+        self.assertEqual(response.status_code, 400)

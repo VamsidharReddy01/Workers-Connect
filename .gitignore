@@ -11,13 +11,15 @@ venv/
 db.sqlite3
 media/
 
-# Flutter
-.dart_tool/
-.packages
-build/
-
 # Node
 node_modules/
+dist/
+*.tsbuildinfo
+.expo/
+.expo-shared/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # OS
 .DS_Store

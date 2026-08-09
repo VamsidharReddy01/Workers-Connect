@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "WorkersBridge",
+    "slug": "workersbridge-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "WorkersBridge uses your photo library so you can upload profile and portfolio images."
+      }
+    },
+    "android": {
+      "permissions": ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"],
+      "adaptiveIcon": {
+        "backgroundColor": "#007F68"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
