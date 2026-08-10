@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Linking,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -21,6 +23,7 @@ import type {
   BookingStatus,
   CategorySummary,
   Conversation,
+  Coordinates,
   Message,
   SignupPayload,
   SupportTicket,
@@ -54,6 +57,67 @@ type PickedImage = {
   type: string;
   size?: number;
 };
+
+function isValidCoordinate(latitude?: number | null, longitude?: number | null) {
+  return (
+    typeof latitude === 'number' &&
+    typeof longitude === 'number' &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
+async function requestDeviceLocation(): Promise<Coordinates> {
+  const permission = await Location.requestForegroundPermissionsAsync();
+  if (!permission.granted) {
+    throw new Error('Location permission was denied. You can continue, but location-based services need access.');
+  }
+
+  const servicesEnabled = await Location.hasServicesEnabledAsync();
+  if (!servicesEnabled) {
+    throw new Error('Location services are turned off. Please enable GPS/location services and try again.');
+  }
+
+  const position = await Location.getCurrentPositionAsync({
+    accuracy: Location.Accuracy.High,
+  });
+  const coords = {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+  };
+  if (!isValidCoordinate(coords.latitude, coords.longitude)) {
+    throw new Error('Your device returned an invalid location.');
+  }
+  return coords;
+}
+
+function googleMapsDirectionsUrl(origin: Coordinates, destination: Coordinates) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}`;
+}
+
+async function openDirectionsForBooking(booking: Booking) {
+  const destinationLatitude = Number(booking.service_latitude);
+  const destinationLongitude = Number(booking.service_longitude);
+  if (!isValidCoordinate(destinationLatitude, destinationLongitude)) {
+    Alert.alert('Location missing', 'This booking does not have a saved service location.');
+    return;
+  }
+
+  try {
+    const origin = await requestDeviceLocation();
+    const url = googleMapsDirectionsUrl(origin, {
+      latitude: destinationLatitude,
+      longitude: destinationLongitude,
+    });
+    await Linking.openURL(url);
+  } catch (error) {
+    showError('Could not open directions', error);
+  }
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -129,6 +193,9 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
   const [otpSent, setOtpSent] = useState(false);
   const [emailForOtp, setEmailForOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupCoordinates, setSignupCoordinates] = useState<Coordinates | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [signupForm, setSignupForm] = useState({
     username: '',
@@ -175,11 +242,30 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
         role,
         phone_number: signupForm.phone_number.trim(),
         location: signupForm.location.trim(),
+        latitude: signupCoordinates?.latitude ?? null,
+        longitude: signupCoordinates?.longitude ?? null,
+        location_permission_granted: locationPermissionGranted,
         email_otp: signupForm.email_otp.trim(),
       });
       await onAuthenticated(result);
     } catch (error) {
       showError('Signup failed', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function captureSignupLocation() {
+    setLoading(true);
+    try {
+      const coords = await requestDeviceLocation();
+      setSignupCoordinates(coords);
+      setLocationPermissionGranted(true);
+      setLocationMessage('Location saved for nearby services and jobs.');
+    } catch (error) {
+      setSignupCoordinates(null);
+      setLocationPermissionGranted(false);
+      setLocationMessage(error instanceof Error ? error.message : 'Location was not saved.');
     } finally {
       setLoading(false);
     }
@@ -279,6 +365,17 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
                   value={signupForm.location}
                   onChangeText={(location) => setSignupForm((form) => ({ ...form, location }))}
                 />
+                <View style={styles.locationBox}>
+                  <Text style={styles.itemTitle}>GPS location</Text>
+                  <Text style={styles.muted}>
+                    Used only for location-based services and worker job directions.
+                  </Text>
+                  <GhostButton
+                    title={signupCoordinates ? 'Update current location' : 'Use current location'}
+                    onPress={captureSignupLocation}
+                  />
+                  {!!locationMessage && <Text style={styles.muted}>{locationMessage}</Text>}
+                </View>
                 <Input
                   label="Email OTP"
                   value={signupForm.email_otp}
@@ -365,6 +462,8 @@ function CustomerHome({ session }: ScreenProps) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [availableOnly, setAvailableOnly] = useState(true);
+  const [serviceCoordinates, setServiceCoordinates] = useState<Coordinates | null>(null);
+  const [serviceLocationMessage, setServiceLocationMessage] = useState('');
   const [bookingForm, setBookingForm] = useState({
     scheduled_at: '',
     address: session.user.location ?? '',
@@ -399,14 +498,30 @@ function CustomerHome({ session }: ScreenProps) {
         service_category: selectedWorker.category,
         description: bookingForm.description,
         address: bookingForm.address || session.user.location || '',
+        service_latitude: serviceCoordinates?.latitude ?? null,
+        service_longitude: serviceCoordinates?.longitude ?? null,
+        location_permission_granted: Boolean(serviceCoordinates),
         scheduled_at: scheduledAt,
         total_amount: selectedWorker.price,
       });
       setBookings((current) => [booking, ...current]);
       setBookingForm({ scheduled_at: '', address: session.user.location ?? '', description: '' });
+      setServiceCoordinates(null);
+      setServiceLocationMessage('');
       Alert.alert('Booking sent', 'Your booking request has been submitted.');
     } catch (error) {
       showError('Could not create booking', error);
+    }
+  }
+
+  async function captureServiceLocation() {
+    try {
+      const coords = await requestDeviceLocation();
+      setServiceCoordinates(coords);
+      setServiceLocationMessage('Service location saved for this booking.');
+    } catch (error) {
+      setServiceCoordinates(null);
+      setServiceLocationMessage(error instanceof Error ? error.message : 'Service location was not saved.');
     }
   }
 
@@ -474,6 +589,17 @@ function CustomerHome({ session }: ScreenProps) {
               value={bookingForm.address}
               onChangeText={(address) => setBookingForm((form) => ({ ...form, address }))}
             />
+            <View style={styles.locationBox}>
+              <Text style={styles.itemTitle}>Service location</Text>
+              <Text style={styles.muted}>
+                Save the exact job location for worker navigation.
+              </Text>
+              <GhostButton
+                title={serviceCoordinates ? 'Update service location' : 'Use current service location'}
+                onPress={captureServiceLocation}
+              />
+              {!!serviceLocationMessage && <Text style={styles.muted}>{serviceLocationMessage}</Text>}
+            </View>
             <Input
               label="Describe your job"
               value={bookingForm.description}
@@ -627,6 +753,11 @@ function WorkerHome({ session }: ScreenProps) {
           <View key={booking.id} style={styles.bookingCard}>
             <BookingCard booking={booking} />
             <View style={styles.actionRow}>
+              <SmallButton
+                title="Get Directions"
+                onPress={() => openDirectionsForBooking(booking)}
+                variant="ghost"
+              />
               {booking.status === 'requested' && (
                 <>
                   <SmallButton title="Accept" onPress={() => updateStatus(booking.id, 'accepted')} />
@@ -771,6 +902,11 @@ function BookingsScreen({ session }: ScreenProps) {
           <BookingCard booking={booking} />
           {isWorker && (
             <View style={styles.actionRow}>
+              <SmallButton
+                title="Get Directions"
+                onPress={() => openDirectionsForBooking(booking)}
+                variant="ghost"
+              />
               {booking.status === 'requested' && (
                 <>
                   <SmallButton title="Accept" onPress={() => updateStatus(booking.id, 'accepted')} />
@@ -1750,6 +1886,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 10,
     padding: 10,
+  },
+  locationBox: {
+    backgroundColor: palette.surfaceSoft,
+    borderColor: palette.line,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+    padding: 12,
   },
   conversationRow: {
     alignItems: 'center',

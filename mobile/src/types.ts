@@ -7,6 +7,10 @@ export type User = {
   role: UserRole;
   phone_number?: string | null;
   location?: string | null;
+  latitude?: string | null;
+  longitude?: string | null;
+  location_permission_granted?: boolean;
+  location_updated_at?: string | null;
   profile_photo_url?: string | null;
 };
 
@@ -23,6 +27,9 @@ export type SignupPayload = {
   role: Exclude<UserRole, 'admin'>;
   phone_number?: string;
   location?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  location_permission_granted?: boolean;
   email_otp: string;
 };
 
@@ -81,6 +88,9 @@ export type Booking = {
   service_category: string;
   description: string;
   address: string;
+  service_latitude?: string | null;
+  service_longitude?: string | null;
+  location_permission_granted?: boolean;
   scheduled_at: string;
   total_amount: string;
   status: BookingStatus;
@@ -119,4 +129,9 @@ export type Conversation = {
   other_party_name: string;
   created_at: string;
   updated_at: string;
+};
+
+export type Coordinates = {
+  latitude: number;
+  longitude: number;
 };

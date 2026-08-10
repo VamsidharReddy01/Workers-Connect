@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Booking, BookingReview, Conversation, JobCategory, Message, WorkerProfile, WorkerWorkImage
-from accounts.serializers import validate_latitude, validate_longitude
-from accounts.serializers import UserSerializer
+from accounts.serializers import UserSerializer, validate_latitude, validate_longitude
 
 
 class JobCategorySerializer(serializers.ModelSerializer):

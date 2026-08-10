@@ -9,11 +9,17 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "WorkersBridge uses your photo library so you can upload profile and portfolio images."
+        "NSPhotoLibraryUsageDescription": "WorkersBridge uses your photo library so you can upload profile and portfolio images.",
+        "NSLocationWhenInUseUsageDescription": "WorkersBridge uses your location to save service addresses and open directions for nearby jobs."
       }
     },
     "android": {
-      "permissions": ["READ_MEDIA_IMAGES", "READ_EXTERNAL_STORAGE"],
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "READ_MEDIA_IMAGES",
+        "READ_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#007F68"
       }

@@ -159,6 +159,9 @@ export const api = {
       service_category: string;
       description: string;
       address: string;
+      service_latitude?: number | string | null;
+      service_longitude?: number | string | null;
+      location_permission_granted?: boolean;
       scheduled_at: string;
       total_amount: string;
     },
