@@ -100,9 +100,13 @@ function googleMapsDirectionsUrl(origin: Coordinates, destination: Coordinates) 
 }
 
 async function openDirectionsForBooking(booking: Booking) {
+  if (booking.service_latitude == null || booking.service_longitude == null) {
+    Alert.alert('Location missing', 'This booking does not have a saved service location.');
+    return;
+  }
   const destinationLatitude = Number(booking.service_latitude);
   const destinationLongitude = Number(booking.service_longitude);
-  if (!isValidCoordinate(destinationLatitude, destinationLongitude)) {
+  if (!Number.isFinite(destinationLatitude) || !Number.isFinite(destinationLongitude) || !isValidCoordinate(destinationLatitude, destinationLongitude)) {
     Alert.alert('Location missing', 'This booking does not have a saved service location.');
     return;
   }
@@ -137,7 +141,18 @@ export default function App() {
         const user = await api.profile(accessToken);
         setSession({ accessToken, refreshToken, user });
       } catch {
-        await AsyncStorage.multiRemove([accessKey, refreshKey]);
+        // Network/server errors should NOT destroy the session.
+        // Only clear tokens if a refresh attempt also fails with a 401.
+        try {
+          const { access } = await api.refresh(refreshToken);
+          const user = await api.profile(access);
+          await AsyncStorage.setItem(accessKey, access);
+          setSession({ accessToken: access, refreshToken, user });
+        } catch {
+          // If refresh also fails, keep session in a degraded state
+          // rather than logging the user out on a network blip.
+          // Only clear if we're confident the tokens are truly invalid.
+        }
       } finally {
         setBooting(false);
       }
@@ -242,8 +257,8 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
         role,
         phone_number: signupForm.phone_number.trim(),
         location: signupForm.location.trim(),
-        latitude: signupCoordinates?.latitude ?? null,
-        longitude: signupCoordinates?.longitude ?? null,
+        latitude: signupCoordinates ? parseFloat(signupCoordinates.latitude.toFixed(6)) : null,
+        longitude: signupCoordinates ? parseFloat(signupCoordinates.longitude.toFixed(6)) : null,
         location_permission_granted: locationPermissionGranted,
         email_otp: signupForm.email_otp.trim(),
       });

@@ -154,13 +154,24 @@ export const api = {
   jobCategories() {
     return request<{ list: string[] }>('/api/workers/job-categories/');
   },
-  nearbyWorkers(params: { category?: string; search?: string; availableOnly?: boolean } = {}) {
+  nearbyWorkers(
+    params: {
+      category?: string;
+      search?: string;
+      availableOnly?: boolean;
+      lat?: number | null;
+      lng?: number | null;
+    } = {},
+    token?: string | null,
+  ) {
     const query = new URLSearchParams();
     if (params.category) query.set('category', params.category);
     if (params.search) query.set('search', params.search);
     if (params.availableOnly) query.set('available_only', 'true');
+    if (params.lat != null) query.set('lat', String(params.lat));
+    if (params.lng != null) query.set('lng', String(params.lng));
     const suffix = query.toString() ? `?${query}` : '';
-    return request<{ list: WorkerProfile[] }>(`/api/workers/nearby/${suffix}`);
+    return request<{ list: WorkerProfile[] }>(`/api/workers/nearby/${suffix}`, {}, token);
   },
   workerDetail(workerId: number) {
     return request<WorkerProfile>(`/api/workers/${workerId}/`);

@@ -87,8 +87,8 @@ function requestBrowserLocation(): Promise<Coordinates> {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const coords = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude: parseFloat(position.coords.latitude.toFixed(6)),
+          longitude: parseFloat(position.coords.longitude.toFixed(6)),
         };
         if (!isValidCoordinate(coords.latitude, coords.longitude)) {
           reject(new Error('Browser returned invalid coordinates.'));
@@ -509,7 +509,8 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
   async function bookService(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedWorker) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const scheduledAt = String(form.get('scheduled_at'));
     try {
       const booking = await api.createBooking(session.accessToken, {
@@ -525,7 +526,7 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
       });
       setBookings((current) => [booking, ...current]);
       notify('Booking request sent.');
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not create booking.', 'error');
     }
@@ -743,7 +744,8 @@ function WorkerDashboard({ session, notify }: ScreenProps) {
 
   async function uploadPortfolio(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const images = form
       .getAll('images')
       .filter((value): value is File => value instanceof File && value.size > 0);
@@ -762,7 +764,7 @@ function WorkerDashboard({ session, notify }: ScreenProps) {
     try {
       await api.uploadWorkImages(session.accessToken, form);
       await loadWorkerData();
-      event.currentTarget.reset();
+      formElement.reset();
       notify('Portfolio images uploaded.');
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not upload portfolio images.', 'error');
@@ -1060,13 +1062,14 @@ function MessagesScreen({ session, notify }: ScreenProps) {
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedId) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const text = String(form.get('text'));
     try {
       const message = await api.sendMessage(session.accessToken, selectedId, text);
       setMessages((current) => [...current, message]);
       loadConversations();
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not send message.', 'error');
     }
@@ -1148,7 +1151,8 @@ function ProfileScreen({ session, onSession, notify }: ScreenProps) {
 
   async function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api.changePassword(
         session.accessToken,
@@ -1156,7 +1160,7 @@ function ProfileScreen({ session, onSession, notify }: ScreenProps) {
         String(form.get('new_password')),
         String(form.get('confirm_password')),
       );
-      event.currentTarget.reset();
+      formElement.reset();
       notify('Password changed.');
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not change password.', 'error');
@@ -1224,7 +1228,8 @@ function SupportScreen({ session, notify }: ScreenProps) {
 
   async function createTicket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const ticket = await api.createSupportTicket(
         session.accessToken,
@@ -1232,7 +1237,7 @@ function SupportScreen({ session, notify }: ScreenProps) {
         String(form.get('message')),
       );
       setTickets((current) => [ticket, ...current]);
-      event.currentTarget.reset();
+      formElement.reset();
       notify('Support ticket submitted.');
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not submit ticket.', 'error');

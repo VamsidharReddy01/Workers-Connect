@@ -70,6 +70,7 @@ export type WorkerProfile = {
   experience_years: number;
   cover_image_url: string | null;
   work_images: WorkerImage[];
+  distance_km?: number | null;
 };
 
 export type BookingStatus =

@@ -1,3 +1,4 @@
+import math
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -509,11 +510,32 @@ class JobCategoryOptionsView(APIView):
         )
         return Response({'list': names}, status=status.HTTP_200_OK)
 
+def _haversine_km(lat1, lon1, lat2, lon2):
+    try:
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            return None
+        r = 6371.0
+        dlat = math.radians(float(lat2) - float(lat1))
+        dlon = math.radians(float(lon2) - float(lon1))
+        a = (
+            math.sin(dlat / 2.0) ** 2
+            + math.cos(math.radians(float(lat1)))
+            * math.cos(math.radians(float(lat2)))
+            * math.sin(dlon / 2.0) ** 2
+        )
+        c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
+        return round(r * c, 2)
+    except (ValueError, TypeError):
+        return None
+
+
 class NearbyWorkersView(APIView):
     """
     API View to list registered workers.
     Can be filtered by category name (?category=Plumber), search query
-    (?search=Rajesh), or availability (?available_only=true).
+    (?search=Rajesh), availability (?available_only=true), and user location
+    (?lat=17.385&lng=78.486 or ?latitude=17.385&longitude=78.486).
+    Computes exact geospatial distance in kilometers (distance_km).
     """
     permission_classes = [AllowAny]
     
@@ -528,6 +550,12 @@ class NearbyWorkersView(APIView):
         category = request.query_params.get('category')
         search = request.query_params.get('search')
         available_only = request.query_params.get('available_only')
+
+        user_lat = request.query_params.get('lat') or request.query_params.get('latitude')
+        user_lng = request.query_params.get('lng') or request.query_params.get('longitude')
+        if user_lat is None and request.user.is_authenticated and getattr(request.user, 'latitude', None) is not None:
+            user_lat = request.user.latitude
+            user_lng = request.user.longitude
         
         if category:
             queryset = queryset.filter(category__iexact=category)
@@ -546,7 +574,25 @@ class NearbyWorkersView(APIView):
             many=True,
             context={'request': request},
         )
-        return Response({'list': serializer.data}, status=status.HTTP_200_OK)
+        data = serializer.data
+
+        if user_lat is not None and user_lng is not None:
+            for item in data:
+                w_user = item.get('user') or {}
+                w_lat = w_user.get('latitude')
+                w_lng = w_user.get('longitude')
+                item['distance_km'] = _haversine_km(user_lat, user_lng, w_lat, w_lng)
+            
+            # Optionally sort by distance if location was provided and workers have distance_km
+            data.sort(
+                key=lambda x: (
+                    not x.get('is_online', False),
+                    x.get('distance_km') if x.get('distance_km') is not None else 999999,
+                )
+            )
+
+        return Response({'list': data}, status=status.HTTP_200_OK)
+
 
 
 class WorkerPublicDetailView(APIView):
