@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "533693893514",
+    "project_id": "worker-s-bridge",
+    "storage_bucket": "worker-s-bridge.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:533693893514:android:8010a0bb479e0c4fe71673",
+        "android_client_info": {
+          "package_name": "com.workersbridge"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBR3btkASoVk2ZwD-mBnfB1Mism91pr4JY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

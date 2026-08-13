@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import type {
+  AppNotification,
   AuthResponse,
   Booking,
   BookingStatus,
@@ -261,5 +262,50 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ text }) },
       token,
     );
+  },
+  // ── Notification API ──────────────────────────────────────────────────────
+  registerDeviceToken(token: string, fcmToken: string, platform: 'android' | 'ios' | 'web' = 'android') {
+    return request<{ message: string; created: boolean }>(
+      '/api/notifications/device-token/',
+      { method: 'POST', body: JSON.stringify({ token: fcmToken, platform }) },
+      token,
+    );
+  },
+  deregisterDeviceToken(token: string, fcmToken?: string) {
+    return request<{ message: string }>(
+      '/api/notifications/device-token/',
+      { method: 'DELETE', body: JSON.stringify({ token: fcmToken }) },
+      token,
+    );
+  },
+  getNotifications(token: string, unreadOnly = false) {
+    const suffix = unreadOnly ? '?unread_only=true' : '';
+    return request<{ list: AppNotification[] }>(`/api/notifications/${suffix}`, {}, token);
+  },
+  getUnreadCount(token: string) {
+    return request<{ count: number }>('/api/notifications/unread-count/', {}, token);
+  },
+  markNotificationRead(token: string, notificationId: number) {
+    return request<AppNotification>(
+      `/api/notifications/${notificationId}/read/`,
+      { method: 'PATCH' },
+      token,
+    );
+  },
+  markAllNotificationsRead(token: string) {
+    return request<{ marked_read: number }>(
+      '/api/notifications/mark-all-read/',
+      { method: 'POST' },
+      token,
+    );
+  },
+  getBooking(token: string, bookingId: number) {
+    // Fetch a single booking — used when navigating from a notification
+    // Re-uses the worker bookings list + customer bookings list with a filter approach
+    // We fetch worker bookings and find by ID, or customer bookings
+    // Since the backend doesn't have a single-booking endpoint, we use the list
+    // and filter locally. For both customer and worker roles this works.
+    return request<{ list: Booking[] }>(`/api/workers/bookings/?booking_id=${bookingId}`, {}, token)
+      .catch(() => request<{ list: Booking[] }>(`/api/workers/bookings/my/?booking_id=${bookingId}`, {}, token));
   },
 };

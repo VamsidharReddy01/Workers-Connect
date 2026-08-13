@@ -29,6 +29,33 @@ from .serializers import (
     WorkerWorkImageSerializer,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _notify_status_change(booking, new_status):
+    """Call the appropriate NotificationService helper for a job status change.
+    Wrapped in try/except — notification failure must NOT block the status update."""
+    try:
+        from notifications.services import NotificationService
+        handlers = {
+            Booking.STATUS_ACCEPTED: NotificationService.notify_job_accepted,
+            Booking.STATUS_DECLINED: NotificationService.notify_job_declined,
+            Booking.STATUS_ON_THE_WAY: NotificationService.notify_worker_on_the_way,
+            Booking.STATUS_IN_PROGRESS: NotificationService.notify_job_started,
+            Booking.STATUS_COMPLETED: NotificationService.notify_job_completed,
+        }
+        handler = handlers.get(new_status)
+        if handler:
+            handler(booking)
+        elif new_status == Booking.STATUS_CANCELLED:
+            cancelled_by = 'worker'
+            NotificationService.notify_job_cancelled(booking, cancelled_by=cancelled_by)
+    except Exception as exc:
+        logger.error('Notification error after status change to %s for booking #%s: %s',
+                     new_status, booking.id, exc)
+
 MAX_PORTFOLIO_IMAGES = 8
 MAX_WORK_IMAGE_SIZE = 5 * 1024 * 1024
 ALLOWED_WORK_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
@@ -305,11 +332,16 @@ class WorkerBookingStatusView(APIView):
             context={"booking": booking},
         )
         if serializer.is_valid():
-            booking.status = serializer.validated_data['status']
+            new_status = serializer.validated_data['status']
+            # Only fire notification if status actually changes
+            status_changed = booking.status != new_status
+            booking.status = new_status
             booking.save(update_fields=['status', 'updated_at'])
             booking = Booking.objects.select_related(
                 'customer', 'worker__user', 'conversation', 'review'
             ).prefetch_related('worker__work_images').get(pk=booking.pk)
+            if status_changed:
+                _notify_status_change(booking, new_status)
             return Response(
                 BookingSerializer(booking, context={'request': request}).data,
                 status=status.HTTP_200_OK,
@@ -336,6 +368,12 @@ class CustomerBookingCreateView(APIView):
             booking = Booking.objects.select_related(
                 'customer', 'worker__user', 'conversation', 'review'
             ).prefetch_related('worker__work_images').get(pk=booking.pk)
+            # Notify the worker of the new job request
+            try:
+                from notifications.services import NotificationService
+                NotificationService.notify_new_job_request(booking)
+            except Exception as exc:
+                logger.error('Failed to notify worker of new booking #%s: %s', booking.id, exc)
             return Response(
                 BookingSerializer(booking, context={'request': request}).data,
                 status=status.HTTP_201_CREATED,
@@ -480,6 +518,17 @@ class ConversationMessageView(APIView):
         )
         conversation.updated_at = timezone.now()
         conversation.save(update_fields=['updated_at'])
+
+        # Notify the other party of the new message
+        try:
+            from notifications.services import NotificationService
+            conversation_with_related = Conversation.objects.select_related(
+                'customer', 'worker__user', 'booking'
+            ).get(pk=conversation.pk)
+            NotificationService.notify_new_message(message, conversation_with_related)
+        except Exception as exc:
+            logger.error('Failed to send message notification for conversation #%s: %s',
+                         conversation.id, exc)
 
         return Response(
             MessageSerializer(message).data,

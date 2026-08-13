@@ -308,12 +308,10 @@ class BookingStatusUpdateSerializer(serializers.Serializer):
         },
         Booking.STATUS_ACCEPTED: {
             Booking.STATUS_ON_THE_WAY,
-            Booking.STATUS_IN_PROGRESS,
             Booking.STATUS_CANCELLED,
         },
         Booking.STATUS_ON_THE_WAY: {
             Booking.STATUS_IN_PROGRESS,
-            Booking.STATUS_COMPLETED,
             Booking.STATUS_CANCELLED,
         },
         Booking.STATUS_IN_PROGRESS: {

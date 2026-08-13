@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
     'workers',
+    'notifications',
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -222,3 +223,8 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# Firebase Admin SDK — path to the service account JSON key file.
+# Set FIREBASE_SERVICE_ACCOUNT_PATH in your .env to enable FCM push notifications.
+# If unset, Firebase will attempt Application Default Credentials (GCP environments).
+FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', '')

@@ -234,7 +234,18 @@ class LogoutView(APIView):
             except AttributeError:
                 # Blacklist app is not installed, so client-side clearing is sufficient
                 pass
-                
+
+            # Deactivate the specific device token if provided, otherwise deactivate all
+            fcm_token = (request.data.get('fcm_token') or '').strip()
+            try:
+                from notifications.models import DeviceToken
+                if fcm_token:
+                    DeviceToken.objects.filter(user=request.user, token=fcm_token).update(is_active=False)
+                else:
+                    DeviceToken.objects.filter(user=request.user).update(is_active=False)
+            except Exception:
+                pass  # Device token deactivation is best-effort
+
             return Response(
                 {"message": "Logged out successfully"},
                 status=status.HTTP_200_OK

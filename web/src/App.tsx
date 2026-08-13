@@ -11,6 +11,8 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  Navigation,
+  Phone,
   RefreshCw,
   Search,
   Settings,
@@ -21,6 +23,7 @@ import {
   UploadCloud,
   UserRound,
   Wrench,
+  X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
@@ -102,8 +105,18 @@ function requestBrowserLocation(): Promise<Coordinates> {
   });
 }
 
-function googleMapsDirectionsUrl(origin: Coordinates, destination: Coordinates) {
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}`;
+function googleMapsDirectionsUrl(origin: Coordinates | null, destination: Coordinates | string) {
+  const params = new URLSearchParams({ api: '1' });
+  if (origin) {
+    params.set('origin', `${origin.latitude},${origin.longitude}`);
+  }
+  params.set(
+    'destination',
+    typeof destination === 'string'
+      ? destination
+      : `${destination.latitude},${destination.longitude}`,
+  );
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 type Session = {
@@ -670,6 +683,8 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
 function WorkerDashboard({ session, notify }: ScreenProps) {
   const [summary, setSummary] = useState<WorkerDashboardSummary | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [updatingBookingId, setUpdatingBookingId] = useState<number | null>(null);
   const [jobCategories, setJobCategories] = useState<string[]>([]);
 
   const loadWorkerData = useCallback(() => {
@@ -692,30 +707,48 @@ function WorkerDashboard({ session, notify }: ScreenProps) {
     }
   }
 
-  async function updateStatus(bookingId: number, status: BookingStatus) {
+  async function updateStatus(booking: Booking, status: BookingStatus) {
+    if (status === 'declined' && !window.confirm('Decline this job request?')) return;
+    if (status === 'completed' && !window.confirm('Mark this job as completed?')) return;
+    setUpdatingBookingId(booking.id);
     try {
-      const updated = await api.updateBookingStatus(session.accessToken, bookingId, status);
-      setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+      const updated = await api.updateBookingStatus(session.accessToken, booking.id, status);
+      setBookings((current) =>
+        current.map((currentBooking) =>
+          currentBooking.id === booking.id ? updated : currentBooking,
+        ),
+      );
+      setSelectedBooking((current) => (current?.id === updated.id ? updated : current));
+      loadWorkerData();
       notify('Booking status updated.');
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not update status.', 'error');
+    } finally {
+      setUpdatingBookingId(null);
     }
   }
 
   async function openDirections(booking: Booking) {
     const destinationLatitude = Number(booking.service_latitude);
     const destinationLongitude = Number(booking.service_longitude);
-    if (!isValidCoordinate(destinationLatitude, destinationLongitude)) {
-      notify('This booking does not have a saved service GPS location.', 'error');
+    const hasCoordinates = isValidCoordinate(destinationLatitude, destinationLongitude);
+    const fallbackAddress = booking.address?.trim();
+    if (!hasCoordinates && !fallbackAddress) {
+      notify('Location coordinates are unavailable.', 'error');
       return;
     }
     try {
-      const origin = await requestBrowserLocation();
+      const origin = await requestBrowserLocation().catch(() => null);
       window.open(
-        googleMapsDirectionsUrl(origin, {
-          latitude: destinationLatitude,
-          longitude: destinationLongitude,
-        }),
+        googleMapsDirectionsUrl(
+          origin,
+          hasCoordinates
+            ? {
+                latitude: destinationLatitude,
+                longitude: destinationLongitude,
+              }
+            : fallbackAddress,
+        ),
         '_blank',
         'noopener,noreferrer',
       );
@@ -813,30 +846,11 @@ function WorkerDashboard({ session, notify }: ScreenProps) {
         <PanelHeader title="Booking requests" action="Refresh" onAction={loadWorkerData} />
         <div className="booking-table">
           {bookings.slice(0, 6).map((booking) => (
-            <article key={booking.id} className="booking-card">
-              <div>
-                <strong>{booking.service_category}</strong>
-                <span>{booking.address}</span>
-                <small>{formatDate(booking.scheduled_at)} · {booking.status_display}</small>
-              </div>
-              <strong>{money(booking.total_amount)}</strong>
-              <div className="button-row">
-                <button type="button" className="secondary-action" onClick={() => openDirections(booking)}>
-                  Get Directions
-                </button>
-                {booking.status === 'requested' && (
-                  <>
-                    <button type="button" onClick={() => updateStatus(booking.id, 'accepted')}>Accept</button>
-                    <button type="button" className="secondary-action" onClick={() => updateStatus(booking.id, 'declined')}>Decline</button>
-                  </>
-                )}
-                {booking.status === 'accepted' && <button type="button" onClick={() => updateStatus(booking.id, 'on_the_way')}>On the way</button>}
-                {['accepted', 'on_the_way'].includes(booking.status) && (
-                  <button type="button" className="secondary-action" onClick={() => updateStatus(booking.id, 'in_progress')}>Start</button>
-                )}
-                {booking.status === 'in_progress' && <button type="button" onClick={() => updateStatus(booking.id, 'completed')}>Complete</button>}
-              </div>
-            </article>
+            <JobRequestCard
+              key={booking.id}
+              booking={booking}
+              onView={() => setSelectedBooking(booking)}
+            />
           ))}
           {!bookings.length && <EmptyState title="No booking requests" text="New customer requests will appear here." />}
         </div>
@@ -892,6 +906,211 @@ function WorkerDashboard({ session, notify }: ScreenProps) {
           )}
         </div>
       </aside>
+      {selectedBooking && (
+        <JobRequestDetails
+          booking={selectedBooking}
+          busy={updatingBookingId === selectedBooking.id}
+          onClose={() => setSelectedBooking(null)}
+          onDirections={openDirections}
+          onUpdateStatus={updateStatus}
+        />
+      )}
+    </div>
+  );
+}
+
+function JobRequestCard({
+  booking,
+  onView,
+}: {
+  booking: Booking;
+  onView: () => void;
+}) {
+  return (
+    <article className="job-request-card">
+      <button type="button" className="job-card-main" onClick={onView}>
+        <Avatar user={booking.customer} />
+        <div className="job-card-copy">
+          <div className="job-card-title">
+            <div>
+              <strong>{displayName(booking.customer)}</strong>
+              <span>{booking.service_category}</span>
+            </div>
+            <span className={`status ${booking.status}`}>{booking.status_display}</span>
+          </div>
+          <p>{booking.description || 'No request description provided.'}</p>
+          <div className="job-card-facts">
+            <span><CalendarDays size={15} /> {formatDateOnly(booking.scheduled_at)}</span>
+            <span><Clock3 size={15} /> {formatTimeOnly(booking.scheduled_at)}</span>
+            <span><MapPin size={15} /> {booking.address || 'Address unavailable'}</span>
+            <span><DollarSign size={15} /> {money(booking.total_amount)}</span>
+          </div>
+        </div>
+      </button>
+      <button type="button" className="secondary-action" onClick={onView}>
+        View Details
+      </button>
+    </article>
+  );
+}
+
+function JobRequestDetails({
+  booking,
+  busy,
+  onClose,
+  onDirections,
+  onUpdateStatus,
+}: {
+  booking: Booking;
+  busy: boolean;
+  onClose: () => void;
+  onDirections: (booking: Booking) => void;
+  onUpdateStatus: (booking: Booking, status: BookingStatus) => void;
+}) {
+  const latitude = booking.service_latitude ?? null;
+  const longitude = booking.service_longitude ?? null;
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="job-detail-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="job-detail-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="job-detail-header">
+          <div>
+            <p className="eyebrow">Job request</p>
+            <h2 id="job-detail-title">{booking.service_category}</h2>
+          </div>
+          <button type="button" className="icon-badge" onClick={onClose} aria-label="Close details">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="job-detail-section customer-detail">
+          <Avatar user={booking.customer} size="lg" />
+          <div>
+            <span>Customer</span>
+            <strong>{displayName(booking.customer)}</strong>
+            {booking.customer.phone_number ? (
+              <a href={`tel:${booking.customer.phone_number}`}>
+                <Phone size={15} /> {booking.customer.phone_number}
+              </a>
+            ) : (
+              <small>Contact number unavailable</small>
+            )}
+          </div>
+        </div>
+
+        <div className="job-detail-grid">
+          <DetailBlock label="Service" value={booking.service_category} />
+          <DetailBlock label="Schedule" value={`${formatDateOnly(booking.scheduled_at)}, ${formatTimeOnly(booking.scheduled_at)}`} />
+          <DetailBlock label="Budget" value={money(booking.total_amount)} />
+          <DetailBlock label="Status" value={booking.status_display} status={booking.status} />
+        </div>
+
+        <div className="job-detail-section">
+          <span>Request Details</span>
+          <p>{booking.description || 'No request description provided.'}</p>
+        </div>
+
+        <div className="job-detail-section">
+          <span>Location</span>
+          <p>{booking.address || 'Address unavailable'}</p>
+          <small>
+            {latitude != null && longitude != null
+              ? `Coordinates: ${latitude}, ${longitude}`
+              : 'Location coordinates are unavailable.'}
+          </small>
+        </div>
+
+        <BookingStatusActions
+          booking={booking}
+          busy={busy}
+          onDirections={onDirections}
+          onUpdateStatus={onUpdateStatus}
+        />
+      </section>
+    </div>
+  );
+}
+
+function DetailBlock({
+  label,
+  value,
+  status,
+}: {
+  label: string;
+  value: string;
+  status?: BookingStatus;
+}) {
+  return (
+    <div className="detail-block">
+      <span>{label}</span>
+      {status ? <strong className={`status ${status}`}>{value}</strong> : <strong>{value}</strong>}
+    </div>
+  );
+}
+
+function BookingStatusActions({
+  booking,
+  busy,
+  onDirections,
+  onUpdateStatus,
+}: {
+  booking: Booking;
+  busy: boolean;
+  onDirections: (booking: Booking) => void;
+  onUpdateStatus: (booking: Booking, status: BookingStatus) => void;
+}) {
+  const primaryAction: Partial<Record<BookingStatus, { label: string; status: BookingStatus }>> = {
+    requested: { label: 'Accept', status: 'accepted' },
+    accepted: { label: 'On The Way', status: 'on_the_way' },
+    on_the_way: { label: 'Start Job', status: 'in_progress' },
+    in_progress: { label: 'Complete Job', status: 'completed' },
+  };
+  const action = primaryAction[booking.status];
+  const canShowDirections = ['requested', 'accepted', 'on_the_way', 'completed'].includes(
+    booking.status,
+  );
+
+  return (
+    <div className="job-detail-actions">
+      {canShowDirections && (
+        <button
+          type="button"
+          className="secondary-action"
+          onClick={() => onDirections(booking)}
+          disabled={busy}
+        >
+          <Navigation size={17} /> Get Directions
+        </button>
+      )}
+      {booking.status === 'requested' && (
+        <button
+          type="button"
+          className="secondary-action danger-text"
+          onClick={() => onUpdateStatus(booking, 'declined')}
+          disabled={busy}
+        >
+          {busy ? 'Updating...' : 'Decline'}
+        </button>
+      )}
+      {action && (
+        <button
+          type="button"
+          className="primary-action"
+          onClick={() => onUpdateStatus(booking, action.status)}
+          disabled={busy}
+        >
+          {busy ? 'Updating...' : action.label}
+        </button>
+      )}
+      {booking.status === 'completed' && (
+        <p className="completion-note"><CheckCircle2 size={17} /> Job completed successfully.</p>
+      )}
     </div>
   );
 }
@@ -900,6 +1119,8 @@ function BookingsScreen({ session, notify }: ScreenProps) {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [status, setStatus] = useState<BookingStatus | ''>('');
   const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [updatingBookingId, setUpdatingBookingId] = useState<number | null>(null);
   const isWorker = session.user.role === 'worker';
 
   const loadBookings = useCallback(() => {
@@ -913,30 +1134,48 @@ function BookingsScreen({ session, notify }: ScreenProps) {
     loadBookings();
   }, [loadBookings]);
 
-  async function updateStatus(bookingId: number, nextStatus: BookingStatus) {
+  async function updateStatus(booking: Booking, nextStatus: BookingStatus) {
+    if (nextStatus === 'declined' && !window.confirm('Decline this job request?')) return;
+    if (nextStatus === 'completed' && !window.confirm('Mark this job as completed?')) return;
+    setUpdatingBookingId(booking.id);
     try {
-      const updated = await api.updateBookingStatus(session.accessToken, bookingId, nextStatus);
-      setBookings((current) => current.map((booking) => (booking.id === bookingId ? updated : booking)));
+      const updated = await api.updateBookingStatus(session.accessToken, booking.id, nextStatus);
+      setBookings((current) =>
+        current.map((currentBooking) =>
+          currentBooking.id === booking.id ? updated : currentBooking,
+        ),
+      );
+      setSelectedBooking((current) => (current?.id === updated.id ? updated : current));
+      loadBookings();
       notify('Booking status updated.');
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not update status.', 'error');
+    } finally {
+      setUpdatingBookingId(null);
     }
   }
 
   async function openDirections(booking: Booking) {
     const destinationLatitude = Number(booking.service_latitude);
     const destinationLongitude = Number(booking.service_longitude);
-    if (!isValidCoordinate(destinationLatitude, destinationLongitude)) {
-      notify('This booking does not have a saved service GPS location.', 'error');
+    const hasCoordinates = isValidCoordinate(destinationLatitude, destinationLongitude);
+    const fallbackAddress = booking.address?.trim();
+    if (!hasCoordinates && !fallbackAddress) {
+      notify('Location coordinates are unavailable.', 'error');
       return;
     }
     try {
-      const origin = await requestBrowserLocation();
+      const origin = await requestBrowserLocation().catch(() => null);
       window.open(
-        googleMapsDirectionsUrl(origin, {
-          latitude: destinationLatitude,
-          longitude: destinationLongitude,
-        }),
+        googleMapsDirectionsUrl(
+          origin,
+          hasCoordinates
+            ? {
+                latitude: destinationLatitude,
+                longitude: destinationLongitude,
+              }
+            : fallbackAddress,
+        ),
         '_blank',
         'noopener,noreferrer',
       );
@@ -979,58 +1218,55 @@ function BookingsScreen({ session, notify }: ScreenProps) {
         ))}
       </div>
       <div className="mini-list spacious">
-        {bookings.map((booking) => (
-          <article key={booking.id} className="booking-detail-card">
-            <BookingRow booking={booking} />
-            <div className="button-row booking-actions">
-              {isWorker && (
-                <button type="button" className="secondary-action" onClick={() => openDirections(booking)}>
-                  Get Directions
-                </button>
+        {bookings.map((booking) =>
+          isWorker ? (
+            <JobRequestCard
+              key={booking.id}
+              booking={booking}
+              onView={() => setSelectedBooking(booking)}
+            />
+          ) : (
+            <article key={booking.id} className="booking-detail-card">
+              <BookingRow booking={booking} />
+              <div className="button-row booking-actions">
+                {booking.status === 'completed' && !booking.has_review && (
+                  <button type="button" onClick={() => setReviewingId(booking.id)}>Review</button>
+                )}
+              </div>
+              {reviewingId === booking.id && (
+                <form className="review-form" onSubmit={(event) => submitReview(event, booking.id)}>
+                  <label className="field">
+                    <span>Rating</span>
+                    <select name="rating" defaultValue="5">
+                      <option value="5">5 stars</option>
+                      <option value="4">4 stars</option>
+                      <option value="3">3 stars</option>
+                      <option value="2">2 stars</option>
+                      <option value="1">1 star</option>
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Feedback</span>
+                    <textarea name="feedback" placeholder="Share your experience" />
+                  </label>
+                  <button>Submit review</button>
+                  <button type="button" className="secondary-action" onClick={() => setReviewingId(null)}>Cancel</button>
+                </form>
               )}
-              {isWorker && booking.status === 'requested' && (
-                <>
-                  <button type="button" onClick={() => updateStatus(booking.id, 'accepted')}>Accept</button>
-                  <button type="button" className="secondary-action" onClick={() => updateStatus(booking.id, 'declined')}>Decline</button>
-                </>
-              )}
-              {isWorker && booking.status === 'accepted' && (
-                <button type="button" onClick={() => updateStatus(booking.id, 'on_the_way')}>On the way</button>
-              )}
-              {isWorker && ['accepted', 'on_the_way'].includes(booking.status) && (
-                <button type="button" className="secondary-action" onClick={() => updateStatus(booking.id, 'in_progress')}>Start</button>
-              )}
-              {isWorker && booking.status === 'in_progress' && (
-                <button type="button" onClick={() => updateStatus(booking.id, 'completed')}>Complete</button>
-              )}
-              {!isWorker && booking.status === 'completed' && !booking.has_review && (
-                <button type="button" onClick={() => setReviewingId(booking.id)}>Review</button>
-              )}
-            </div>
-            {!isWorker && reviewingId === booking.id && (
-              <form className="review-form" onSubmit={(event) => submitReview(event, booking.id)}>
-                <label className="field">
-                  <span>Rating</span>
-                  <select name="rating" defaultValue="5">
-                    <option value="5">5 stars</option>
-                    <option value="4">4 stars</option>
-                    <option value="3">3 stars</option>
-                    <option value="2">2 stars</option>
-                    <option value="1">1 star</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Feedback</span>
-                  <textarea name="feedback" placeholder="Share your experience" />
-                </label>
-                <button>Submit review</button>
-                <button type="button" className="secondary-action" onClick={() => setReviewingId(null)}>Cancel</button>
-              </form>
-            )}
-          </article>
-        ))}
+            </article>
+          ),
+        )}
         {!bookings.length && <EmptyState title="No bookings found" text="Bookings matching this filter will appear here." />}
       </div>
+      {selectedBooking && (
+        <JobRequestDetails
+          booking={selectedBooking}
+          busy={updatingBookingId === selectedBooking.id}
+          onClose={() => setSelectedBooking(null)}
+          onDirections={openDirections}
+          onUpdateStatus={updateStatus}
+        />
+      )}
     </section>
   );
 }
@@ -1418,6 +1654,27 @@ function formatDate(value: string) {
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function formatDateOnly(value: string) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
+function formatTimeOnly(value: string) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function displayName(user: User) {
+  return user.username.replaceAll('_', ' ');
 }
 
 function labelize(value: string) {

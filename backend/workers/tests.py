@@ -146,6 +146,97 @@ class BookingWorkflowTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['status'], Booking.STATUS_ACCEPTED)
 
+    def test_worker_status_flow_rejects_invalid_shortcuts(self):
+        booking_id = self.create_booking().data['id']
+        self.client.force_authenticate(user=self.worker_user)
+
+        requested_to_completed = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_COMPLETED},
+            format='json',
+        )
+        self.assertEqual(requested_to_completed.status_code, 400)
+
+        accepted = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_ACCEPTED},
+            format='json',
+        )
+        accepted_to_completed = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_COMPLETED},
+            format='json',
+        )
+        accepted_to_start = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_IN_PROGRESS},
+            format='json',
+        )
+
+        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(accepted_to_completed.status_code, 400)
+        self.assertEqual(accepted_to_start.status_code, 400)
+
+    def test_worker_status_flow_allows_each_required_step(self):
+        booking_id = self.create_booking().data['id']
+        self.client.force_authenticate(user=self.worker_user)
+
+        for next_status in [
+            Booking.STATUS_ACCEPTED,
+            Booking.STATUS_ON_THE_WAY,
+            Booking.STATUS_IN_PROGRESS,
+            Booking.STATUS_COMPLETED,
+        ]:
+            response = self.client.patch(
+                reverse('worker-booking-status', args=[booking_id]),
+                {'status': next_status},
+                format='json',
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data['status'], next_status)
+
+    def test_worker_can_decline_requested_booking_only_once(self):
+        booking_id = self.create_booking().data['id']
+        self.client.force_authenticate(user=self.worker_user)
+
+        declined = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_DECLINED},
+            format='json',
+        )
+        reopen = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_ACCEPTED},
+            format='json',
+        )
+
+        self.assertEqual(declined.status_code, 200)
+        self.assertEqual(reopen.status_code, 400)
+
+    def test_other_worker_cannot_update_booking_status(self):
+        booking_id = self.create_booking().data['id']
+        other_user = User.objects.create_user(
+            username='other_worker',
+            email='other-worker@example.com',
+            password='password123',
+            role='worker',
+        )
+        WorkerProfile.objects.create(
+            user=other_user,
+            category='Painter',
+            price=500,
+            is_online=True,
+        )
+        self.client.force_authenticate(user=other_user)
+
+        response = self.client.patch(
+            reverse('worker-booking-status', args=[booking_id]),
+            {'status': Booking.STATUS_ACCEPTED},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, 404)
+
     def test_customer_can_review_completed_booking_once(self):
         booking_id = self.create_booking().data['id']
         booking = Booking.objects.get(id=booking_id)

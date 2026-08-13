@@ -794,6 +794,177 @@ h3 {
   grid-template-columns: 1fr auto auto;
 }
 
+.job-request-card {
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+  padding: 12px;
+}
+
+.job-card-main {
+  align-items: start;
+  background: transparent;
+  color: var(--text);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr;
+  padding: 0;
+  text-align: left;
+}
+
+.job-card-copy {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.job-card-title {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.job-card-title span,
+.job-card-copy p,
+.job-card-facts span {
+  color: var(--muted);
+}
+
+.job-card-copy p {
+  line-height: 1.45;
+  max-width: 760px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-card-facts {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.job-card-facts span {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.job-card-facts svg {
+  color: var(--primary);
+  flex: 0 0 auto;
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgb(17 24 39 / 48%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 40;
+}
+
+.job-detail-modal {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 16px;
+  max-height: min(820px, calc(100vh - 36px));
+  max-width: 760px;
+  overflow: auto;
+  padding: 18px;
+  width: min(760px, 100%);
+}
+
+.job-detail-header {
+  align-items: start;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+}
+
+.job-detail-section,
+.detail-block {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 13px;
+}
+
+.job-detail-section > span,
+.detail-block > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.job-detail-section p {
+  line-height: 1.55;
+}
+
+.job-detail-section small {
+  color: var(--muted);
+}
+
+.customer-detail {
+  align-items: center;
+  background: var(--surface);
+  display: flex;
+  gap: 14px;
+}
+
+.customer-detail a,
+.customer-detail small {
+  align-items: center;
+  color: var(--primary-strong);
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+  text-decoration: none;
+}
+
+.job-detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.job-detail-actions {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 14px;
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+.completion-note {
+  align-items: center;
+  color: var(--primary-strong);
+  display: flex;
+  font-weight: 900;
+  gap: 7px;
+  margin-right: auto;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -1103,8 +1274,26 @@ textarea:disabled {
 
   .booking-row,
   .booking-card,
+  .job-request-card,
+  .job-card-main,
   .worker-row,
   .review-form {
+    grid-template-columns: 1fr;
+  }
+
+  .job-card-title,
+  .job-detail-header,
+  .job-detail-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .job-card-copy p {
+    white-space: normal;
+  }
+
+  .job-card-facts,
+  .job-detail-grid {
     grid-template-columns: 1fr;
   }
 

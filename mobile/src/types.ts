@@ -136,3 +136,25 @@ export type Coordinates = {
   latitude: number;
   longitude: number;
 };
+
+export type NotificationType =
+  | 'JOB_REQUEST_RECEIVED'
+  | 'JOB_ACCEPTED'
+  | 'JOB_DECLINED'
+  | 'WORKER_ON_THE_WAY'
+  | 'JOB_STARTED'
+  | 'JOB_COMPLETED'
+  | 'JOB_CANCELLED'
+  | 'NEW_MESSAGE'
+  | 'SYSTEM_NOTIFICATION';
+
+export type AppNotification = {
+  id: number;
+  notification_type: NotificationType;
+  title: string;
+  message: string;
+  related_booking_id: number | null;
+  data: Record<string, string>;
+  is_read: boolean;
+  created_at: string;
+};
