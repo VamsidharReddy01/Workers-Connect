@@ -22,10 +22,9 @@ public class DriverFactory {
             try {
                 UiAutomator2Options options = new UiAutomator2Options()
                         .setPlatformName(Platform.ANDROID.name())
-                        .setDeviceName("emulator-5554")
                         .setAutomationName("UiAutomator2")
-                        .setAppPackage("com.workersbridge.app")
-                        .setAppActivity("com.workersbridge.app.MainActivity")
+                        .setAppPackage("com.workersbridge")
+                        .setAppActivity("com.workersbridge.MainActivity")
                         .setAutoGrantPermissions(true)
                         .setNoReset(false);
 

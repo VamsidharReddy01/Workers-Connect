@@ -33,9 +33,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
 
-      - name: Install Appium
+      - name: Install Mobile NPM Dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Build Android APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug
+
+      - name: Install Appium & UiAutomator2
         run: |
           npm install -g appium@next
           appium driver install uiautomator2
@@ -49,17 +59,26 @@ jobs:
         run: |
           python generate_test_data.py
 
-
-
-      - name: Run Tests on Emulator
+      - name: Run Appium Tests on Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: default
+          target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_2
+          disable-animations: true
           script: |
             echo "Emulator started successfully"
+            adb devices
+            adb shell getprop sys.boot_completed
+            adb shell getprop ro.build.version.release
+            adb shell getprop ro.build.version.sdk
+            
+            echo "Installing APK..."
+            adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm list packages | grep com.workersbridge
+            
+            echo "Running Maven TestNG E2E tests..."
             cd automation
             mvn clean test -DsuiteXmlFile=src/test/java/com/workersbridge/automation/runners/testng.xml
           
@@ -69,7 +88,6 @@ jobs:
           echo "# Android Appium E2E Execution Summary" >> $GITHUB_STEP_SUMMARY
           echo "Build Number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
           echo "Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "Total Tests Executed: 510" >> $GITHUB_STEP_SUMMARY
           echo "Reports are attached to artifacts and deployed to GitHub Pages." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Artifacts
