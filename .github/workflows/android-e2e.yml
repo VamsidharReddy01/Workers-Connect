@@ -2,12 +2,12 @@ name: Android Appium E2E Automation
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
   schedule:
-    - cron: '0 2 * * *' # Run at 2 AM every day
+    - cron: "0 2 * * *"
 
 permissions:
   contents: write
@@ -16,63 +16,138 @@ permissions:
 
 jobs:
   test:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
+
+      # --------------------------------------------------
+      # 1. Checkout
+      # --------------------------------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+
+      # --------------------------------------------------
+      # 2. Java
+      # --------------------------------------------------
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          java-version: "17"
+          distribution: "temurin"
           cache: maven
 
+
+      # --------------------------------------------------
+      # 3. Node.js
+      # --------------------------------------------------
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "20"
+          cache: npm
 
+
+      # --------------------------------------------------
+      # 4. Install Node dependencies
+      # --------------------------------------------------
+      - name: Install Node Dependencies
+        run: npm ci
+
+
+      # --------------------------------------------------
+      # 5. Install Appium
+      # --------------------------------------------------
       - name: Install Appium
         run: |
-          npm install -g appium@next
+          npm install -g appium
           appium driver install uiautomator2
+          appium --version
+          appium driver list --installed
 
+
+      # --------------------------------------------------
+      # 6. Setup Python
+      # --------------------------------------------------
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
+
+      # --------------------------------------------------
+      # 7. Generate Test Data
+      # --------------------------------------------------
       - name: Generate Test Data
         run: |
           python generate_test_data.py
 
 
-
-      - name: Run Tests on Emulator
+      # --------------------------------------------------
+      # 8. Start Android Emulator
+      # --------------------------------------------------
+      - name: Run Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
-          target: default
+          api-level: 35
+          target: google_apis
           arch: x86_64
-          profile: Nexus 6
+          profile: pixel_2
+          emulator-options: >-
+            -no-window
+            -no-audio
+            -no-boot-anim
+            -gpu swiftshader_indirect
+          disable-animations: true
+
           script: |
-            echo "Emulator started successfully"
+
+            echo "========================================"
+            echo "ANDROID EMULATOR INFORMATION"
+            echo "========================================"
+
+            adb devices
+
+            echo "Android version:"
+            adb shell getprop ro.build.version.release
+
+            echo "API level:"
+            adb shell getprop ro.build.version.sdk
+
+            echo "Boot status:"
+            adb shell getprop sys.boot_completed
+
+            echo "========================================"
+            echo "RUNNING APPIUM TESTS"
+            echo "========================================"
+
             cd automation
-            mvn clean test -DsuiteXmlFile=src/test/java/com/workersbridge/automation/runners/testng.xml
-          
+
+            mvn clean test \
+              -DsuiteXmlFile=src/test/java/com/workersbridge/automation/runners/testng.xml
+
+
+      # --------------------------------------------------
+      # 9. Generate Summary
+      # --------------------------------------------------
       - name: Generate Action Summary
         if: always()
         run: |
           echo "# Android Appium E2E Execution Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Build Number: ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "Total Tests Executed: 510" >> $GITHUB_STEP_SUMMARY
-          echo "Reports are attached to artifacts and deployed to GitHub Pages." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Runner:** Ubuntu" >> $GITHUB_STEP_SUMMARY
+          echo "**Android API:** 35" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Framework:** Appium + TestNG + Maven" >> $GITHUB_STEP_SUMMARY
+          echo "**Total Tests:** 510" >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload Artifacts
+
+      # --------------------------------------------------
+      # 10. Upload Test Reports
+      # --------------------------------------------------
+      - name: Upload Automation Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -82,15 +157,10 @@ jobs:
             automation/screenshots/
           retention-days: 30
 
-      - name: Deploy to GitHub Pages
-        if: always()
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./automation/reports/latest/
-          destination_dir: reports/history/build-${{ github.run_number }}
-          keep_files: true
-          
+
+      # --------------------------------------------------
+      # 11. Deploy Reports
+      # --------------------------------------------------
       - name: Deploy Latest Report to GitHub Pages
         if: always()
         uses: peaceiris/actions-gh-pages@v3
@@ -98,4 +168,17 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./automation/reports/latest/
           destination_dir: reports/latest/
+          keep_files: true
+
+
+      # --------------------------------------------------
+      # 12. Deploy Historical Report
+      # --------------------------------------------------
+      - name: Deploy Historical Report
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./automation/reports/latest/
+          destination_dir: reports/history/build-${{ github.run_number }}
           keep_files: true
