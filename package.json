@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@react-native-firebase/app": "^26.2.0",
-    "@react-native-firebase/messaging": "^26.2.0"
-  }
-}
