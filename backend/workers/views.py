@@ -238,8 +238,14 @@ class WorkerAvailabilityView(APIView):
         if error:
             return error
 
-        is_online = request.data.get('is_online')
-        if not isinstance(is_online, bool):
+        is_online_raw = request.data.get('is_online')
+        if isinstance(is_online_raw, bool):
+            is_online = is_online_raw
+        elif isinstance(is_online_raw, str) and is_online_raw.lower() in ('true', 'false', '1', '0'):
+            is_online = is_online_raw.lower() in ('true', '1')
+        elif isinstance(is_online_raw, int) and is_online_raw in (0, 1):
+            is_online = bool(is_online_raw)
+        else:
             return Response(
                 {"errors": {"is_online": ["This field must be true or false."]}},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -668,7 +674,13 @@ class NearbyWorkersView(APIView):
                 Q(category__icontains=search) |
                 Q(user__location__icontains=search)
             )
-        queryset = queryset.order_by('-is_online', 'category', 'user__username')
+        # Calculate distance before serializing with PublicWorkerProfileSerializer
+        distances = {}
+        if user_lat is not None and user_lng is not None:
+            for profile in queryset:
+                w_lat = profile.user.latitude
+                w_lng = profile.user.longitude
+                distances[profile.id] = _haversine_km(user_lat, user_lng, w_lat, w_lng)
 
         # SECURITY FIX #20: Use PublicWorkerProfileSerializer for public endpoints
         serializer = PublicWorkerProfileSerializer(
@@ -680,10 +692,7 @@ class NearbyWorkersView(APIView):
 
         if user_lat is not None and user_lng is not None:
             for item in data:
-                w_user = item.get('user') or {}
-                w_lat = w_user.get('latitude')
-                w_lng = w_user.get('longitude')
-                item['distance_km'] = _haversine_km(user_lat, user_lng, w_lat, w_lng)
+                item['distance_km'] = distances.get(item.get('id'))
             
             data.sort(
                 key=lambda x: (

@@ -226,13 +226,17 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
 # SECURITY FIX #14: Content-Security-Policy via django-csp
-CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'",)
-CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
-CSP_IMG_SRC = ("'self'", "data:", "blob:")
-CSP_FONT_SRC = ("'self'",)
-CSP_CONNECT_SRC = ("'self'",)
-CSP_FRAME_ANCESTORS = ("'none'",)
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'connect-src': ("'self'",),
+        'default-src': ("'self'",),
+        'font-src': ("'self'",),
+        'frame-ancestors': ("'none'",),
+        'img-src': ("'self'", 'data:', 'blob:'),
+        'script-src': ("'self'",),
+        'style-src': ("'self'", "'unsafe-inline'")
+    }
+}
 
 
 # ──────────────────────────────────────────────────────────────

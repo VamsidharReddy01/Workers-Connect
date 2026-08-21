@@ -4,3 +4,97 @@
 2026-08-21 20:58:07,985 INFO security Signup success user=attacker email=attacker@example.com ip=127.0.0.1
 2026-08-21 20:58:08,907 INFO security OTP requested for existing email=testuser@example.com ip=127.0.0.1
 2026-08-21 20:58:08,927 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:16:01,496 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:16:02,508 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:16:02,531 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:16:31,998 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:16:36,586 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:16:38,535 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:16:40,464 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:16:43,401 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:16:45,502 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:20:25,830 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:20:26,846 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:20:26,868 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:20:55,865 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:21:00,599 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:21:02,502 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:21:04,457 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:21:07,331 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:21:09,234 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:21:21,713 WARNING security Login failed email=EDGE@EXAMPLE.COM ip=127.0.0.1
+2026-08-21 22:21:22,666 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:21:23,671 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:21:24,611 WARNING security Login failed email=edge@example.com ip=127.0.0.1
+2026-08-21 22:21:25,525 WARNING security Login failed email=admin'-- ip=127.0.0.1
+2026-08-21 22:21:32,268 INFO security OTP sent to email=user+tag@domain.co.in ip=127.0.0.1
+2026-08-21 22:21:34,249 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:21:45,830 INFO security Signup success user=José_Silva email=unicode@example.com ip=127.0.0.1
+2026-08-21 22:26:20,841 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:26:21,753 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:26:21,770 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:26:57,387 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:27:01,685 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:27:03,435 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:27:05,231 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:27:07,940 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:27:09,683 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:27:21,012 INFO security Login success user=edgeuser email=edge@example.com ip=127.0.0.1
+2026-08-21 22:27:21,892 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:27:22,788 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:27:23,686 WARNING security Login failed email=edge@example.com ip=127.0.0.1
+2026-08-21 22:27:24,541 WARNING security Login failed email=admin'-- ip=127.0.0.1
+2026-08-21 22:27:30,733 INFO security OTP sent to email=user+tag@domain.co.in ip=127.0.0.1
+2026-08-21 22:27:32,589 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:27:43,142 INFO security Signup success user=José_Silva email=unicode@example.com ip=127.0.0.1
+2026-08-21 22:33:48,838 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:33:49,808 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:33:49,826 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:34:41,570 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:34:46,229 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:34:48,180 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:34:50,033 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:34:52,872 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:34:54,722 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:35:06,779 INFO security Login success user=edgeuser email=edge@example.com ip=127.0.0.1
+2026-08-21 22:35:07,733 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:35:08,631 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:35:09,584 WARNING security Login failed email=edge@example.com ip=127.0.0.1
+2026-08-21 22:35:10,532 WARNING security Login failed email=admin'-- ip=127.0.0.1
+2026-08-21 22:35:16,988 INFO security OTP sent to email=user+tag@domain.co.in ip=127.0.0.1
+2026-08-21 22:35:18,857 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:35:29,944 INFO security Signup success user=José_Silva email=unicode@example.com ip=127.0.0.1
+2026-08-21 22:42:29,654 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:42:30,516 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:42:30,521 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:43:19,400 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:43:23,744 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:43:25,557 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:43:27,360 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:43:30,052 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:43:31,867 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:43:43,369 INFO security Login success user=edgeuser email=edge@example.com ip=127.0.0.1
+2026-08-21 22:43:44,257 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:43:45,122 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:43:46,010 WARNING security Login failed email=edge@example.com ip=127.0.0.1
+2026-08-21 22:43:46,879 WARNING security Login failed email=admin'-- ip=127.0.0.1
+2026-08-21 22:43:53,043 INFO security OTP sent to email=user+tag@domain.co.in ip=127.0.0.1
+2026-08-21 22:43:54,849 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:44:05,614 INFO security Signup success user=José_Silva email=unicode@example.com ip=127.0.0.1
+2026-08-21 22:51:32,011 INFO security Signup success user=escalator email=escalator@example.com ip=127.0.0.1
+2026-08-21 22:51:33,042 INFO security OTP requested for existing email=secuser@example.com ip=127.0.0.1
+2026-08-21 22:51:33,047 INFO security OTP sent to email=unregistered@example.com ip=127.0.0.1
+2026-08-21 22:52:28,916 INFO security Password changed user=mainuser ip=127.0.0.1
+2026-08-21 22:52:34,347 WARNING security Login failed email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:52:36,278 INFO security Login success user=mainuser email=mainuser@example.com ip=127.0.0.1
+2026-08-21 22:52:38,167 INFO security Logout user=mainuser ip=127.0.0.1
+2026-08-21 22:52:41,011 INFO security OTP sent to email=fresh@example.com ip=127.0.0.1
+2026-08-21 22:52:42,872 INFO security Signup success user=newreg email=newreg@example.com ip=127.0.0.1
+2026-08-21 22:52:55,444 INFO security Login success user=edgeuser email=edge@example.com ip=127.0.0.1
+2026-08-21 22:52:56,386 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:52:57,434 WARNING security Login failed email=unknown ip=127.0.0.1
+2026-08-21 22:52:58,516 WARNING security Login failed email=edge@example.com ip=127.0.0.1
+2026-08-21 22:52:59,574 WARNING security Login failed email=admin'-- ip=127.0.0.1
+2026-08-21 22:53:06,784 INFO security OTP sent to email=user+tag@domain.co.in ip=127.0.0.1
+2026-08-21 22:53:08,795 INFO security OTP sent to email=newuser@example.com ip=127.0.0.1
+2026-08-21 22:53:20,777 INFO security Signup success user=José_Silva email=unicode@example.com ip=127.0.0.1

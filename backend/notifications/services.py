@@ -287,7 +287,7 @@ class NotificationService:
             recipient=recipient,
             notification_type=NotificationType.NEW_MESSAGE,
             title=sender.username,
-            message=message.text[:120] if len(message.text) > 120 else message.text,
+            message=f"{message.text[:117]}..." if len(message.text) > 120 else message.text,
             booking=conversation.booking,
             extra_data={'conversation_id': str(conversation.id)},
         )

@@ -10,18 +10,18 @@ class WorkerSecurityTests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.customer_user = User.objects.create_user(
-            username='cust1',
-            email='cust1@example.com',
+            username='cust_sec',
+            email='cust_sec@example.com',
             password='Password123!',
             role='customer'
         )
         self.worker_user = User.objects.create_user(
-            username='work1',
-            email='work1@example.com',
+            username='work_sec',
+            email='work_sec@example.com',
             password='Password123!',
             role='worker',
             phone_number='9998887776',
-            location='Secret Location'
+            location='Secret Worker Base'
         )
         self.worker_profile = WorkerProfile.objects.create(
             user=self.worker_user,
@@ -31,7 +31,6 @@ class WorkerSecurityTests(TestCase):
         )
 
     def test_public_worker_list_masks_user_info(self):
-        """Fix #20: Ensure nearby/public endpoint uses PublicWorkerProfileSerializer."""
         res = self.client.get('/api/workers/nearby/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         worker_data = res.data['list'][0]
@@ -42,7 +41,6 @@ class WorkerSecurityTests(TestCase):
         self.assertNotIn('longitude', user_info)
 
     def test_customer_booking_cancellation(self):
-        """Fix #17: Ensure customer can cancel their pending booking."""
         booking = Booking.objects.create(
             customer=self.customer_user,
             worker=self.worker_profile,
@@ -60,7 +58,6 @@ class WorkerSecurityTests(TestCase):
         self.assertEqual(booking.status, Booking.STATUS_CANCELLED)
 
     def test_worker_cannot_cancel_via_customer_endpoint(self):
-        """Fix #17: Ensure only customer role can call customer cancellation."""
         booking = Booking.objects.create(
             customer=self.customer_user,
             worker=self.worker_profile,
