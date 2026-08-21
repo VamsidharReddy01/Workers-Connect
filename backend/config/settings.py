@@ -216,15 +216,20 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Security hardening & Test Environment Guards
 # ──────────────────────────────────────────────────────────────
 
-IS_TESTING = 'test' in sys.argv or env_bool('TESTING', False)
+IS_TESTING = (
+    'test' in sys.argv
+    or any('test' in str(arg).lower() for arg in sys.argv)
+    or env_bool('TESTING', False)
+    or env_bool('USE_SQLITE_FOR_TESTS', False)
+)
 
 # In testing or debug mode, disable SSL redirect to prevent 301 redirects on test clients
-SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG and not IS_TESTING)
-SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG and not IS_TESTING)
-CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', not DEBUG and not IS_TESTING)
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', False if (DEBUG or IS_TESTING) else True)
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', False if (DEBUG or IS_TESTING) else True)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', False if (DEBUG or IS_TESTING) else True)
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0' if (DEBUG or IS_TESTING) else '31536000'))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', not DEBUG and not IS_TESTING)
-SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', not DEBUG and not IS_TESTING)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', False if (DEBUG or IS_TESTING) else True)
+SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False if (DEBUG or IS_TESTING) else True)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 APPEND_SLASH = True

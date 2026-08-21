@@ -21,6 +21,9 @@ jobs:
       SECRET_KEY: 'ci-secret-key-for-automated-github-actions-tests-1234567890'
       DEBUG: 'False'
       USE_SQLITE_FOR_TESTS: 'True'
+      SECURE_SSL_REDIRECT: 'False'
+      SESSION_COOKIE_SECURE: 'False'
+      CSRF_COOKIE_SECURE: 'False'
       ALLOWED_HOSTS: 'localhost,127.0.0.1'
 
     steps:
