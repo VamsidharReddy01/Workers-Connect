@@ -1,5 +1,7 @@
 #  Workers App (Service Marketplace)
 
+[![Security Review](https://github.com/VamsidharReddy01/Workers-Connect/actions/workflows/security-review.yml/badge.svg)](https://github.com/VamsidharReddy01/Workers-Connect/actions/workflows/security-review.yml)
+
 A full-stack service marketplace application where users can find and book skilled workers like electricians, plumbers, carpenters, etc.
 
 Built using **Django (Backend) + React/Vite Web + Expo React Native Mobile + PostgreSQL (Database)**.

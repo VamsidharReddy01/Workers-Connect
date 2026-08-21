@@ -65,12 +65,18 @@ jobs:
     name: SAST — Semgrep
     needs: detect-stack
     runs-on: ubuntu-latest
-    container:
-      image: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Semgrep
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep (SARIF)
         run: |
           semgrep scan \
             --config auto \
@@ -96,6 +102,7 @@ jobs:
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: semgrep-results.sarif
           category: semgrep
@@ -136,6 +143,7 @@ jobs:
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: bandit-results.sarif
           category: bandit
@@ -154,7 +162,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
           scan-ref: backend/
@@ -164,7 +172,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Run Trivy (table format)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: fs
           scan-ref: backend/
@@ -175,6 +183,7 @@ jobs:
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
         if: always()
+        continue-on-error: true
         with:
           sarif_file: trivy-results.sarif
           category: trivy
@@ -220,6 +229,7 @@ jobs:
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           path: reports/
 
@@ -239,6 +249,7 @@ jobs:
 
       - name: Upload consolidated reports
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: security-review-reports
           path: reports/
@@ -246,13 +257,7 @@ jobs:
       - name: Fail on critical findings
         run: |
           if [ -f reports/semgrep-report/semgrep-results.sarif ]; then
-            CRITICAL=$(python3 -c "
-import json, sys
-with open('reports/semgrep-report/semgrep-results.sarif') as f:
-    data = json.load(f)
-count = sum(1 for run in data.get('runs', []) for r in run.get('results', []) if r.get('level') == 'error')
-print(count)
-" 2>/dev/null || echo 0)
+            CRITICAL=$(python3 -c "import json; data = json.load(open('reports/semgrep-report/semgrep-results.sarif')); print(sum(1 for run in data.get('runs', []) for r in run.get('results', []) if r.get('level') == 'error'))" 2>/dev/null || echo 0)
             echo "Semgrep critical findings: $CRITICAL"
             if [ "$CRITICAL" -gt 0 ] 2>/dev/null; then
               echo "::error::Found $CRITICAL critical SAST findings"
