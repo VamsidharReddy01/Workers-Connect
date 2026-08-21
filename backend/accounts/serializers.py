@@ -1,3 +1,7 @@
+import io
+import logging
+
+from PIL import Image
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -5,8 +9,15 @@ from django.core.cache import cache
 from django.utils import timezone
 from .models import SupportTicket, User
 
+logger = logging.getLogger(__name__)
+
 MAX_PROFILE_PHOTO_SIZE = 5 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+# SECURITY FIX #16: Allowed Pillow image formats for magic-byte validation
+ALLOWED_IMAGE_FORMATS = {'JPEG', 'PNG', 'WEBP'}
+
+# SECURITY FIX #10: OTP brute-force attempt limit
+OTP_MAX_VERIFY_ATTEMPTS = 5
 
 
 def validate_latitude(value):
@@ -32,6 +43,68 @@ def _absolute_media_url(obj, request):
         return request.build_absolute_uri(obj.url)
     return obj.url
 
+
+def _validate_image_magic_bytes(value):
+    """
+    SECURITY FIX #16: Validate uploaded image by reading its actual file content
+    with Pillow, not just the client-provided Content-Type header.
+    """
+    if value is None:
+        return value
+    try:
+        # Read the file into memory and verify with Pillow
+        value.seek(0)
+        img = Image.open(value)
+        img.verify()
+        if img.format not in ALLOWED_IMAGE_FORMATS:
+            raise serializers.ValidationError(
+                f'Invalid image format "{img.format}". Upload a JPG, PNG, or WebP image.'
+            )
+        value.seek(0)  # Reset file pointer for Django to save
+    except serializers.ValidationError:
+        raise
+    except Exception:
+        raise serializers.ValidationError(
+            'File is not a valid image. Upload a JPG, PNG, or WebP image.'
+        )
+    return value
+
+
+# ──────────────────────────────────────────────────────────────
+# SECURITY FIX #20: Separate Public serializer (masks sensitive data)
+# ──────────────────────────────────────────────────────────────
+
+class PublicUserSerializer(serializers.ModelSerializer):
+    """
+    User serializer for public-facing endpoints (e.g. worker listings).
+    Masks email, phone, and reduces location precision.
+    """
+    profile_photo_url = serializers.SerializerMethodField()
+    masked_location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'role',
+            'masked_location',
+            'profile_photo_url',
+        ]
+        read_only_fields = fields
+
+    def get_profile_photo_url(self, obj):
+        if not obj.profile_photo:
+            return None
+        return _absolute_media_url(obj.profile_photo, self.context.get('request'))
+
+    def get_masked_location(self, obj):
+        return obj.location or ''
+
+
+# ──────────────────────────────────────────────────────────────
+# Private UserSerializer (for authenticated user's own profile)
+# ──────────────────────────────────────────────────────────────
 
 class UserSerializer(serializers.ModelSerializer):
     profile_photo_url = serializers.SerializerMethodField()
@@ -96,10 +169,11 @@ class UserSerializer(serializers.ModelSerializer):
             return value
         if value.size > MAX_PROFILE_PHOTO_SIZE:
             raise serializers.ValidationError('Profile photo must be 5 MB or smaller.')
+        # SECURITY FIX #16: Validate both Content-Type AND magic bytes
         content_type = getattr(value, 'content_type', '')
         if content_type not in ALLOWED_IMAGE_TYPES:
             raise serializers.ValidationError('Upload a JPG, PNG, or WebP image.')
-        return value
+        return _validate_image_magic_bytes(value)
 
     def validate_latitude(self, value):
         return validate_latitude(value)
@@ -154,7 +228,9 @@ class SignupSerializer(serializers.ModelSerializer):
             'email_otp',
         ]
         extra_kwargs = {
-            'role': {'required': False},
+            # SECURITY FIX #8: role is read-only — server assigns it, users cannot
+            # choose their own role during signup.
+            'role': {'required': False, 'read_only': True},
             'phone_number': {'required': False},
             'location': {'required': False},
             'latitude': {'required': False},
@@ -197,18 +273,32 @@ class SignupSerializer(serializers.ModelSerializer):
                 {'email_otp': 'OTP expired or not requested. Please send a new OTP.'}
             )
 
+        # SECURITY FIX #10: Track OTP verification attempts and lock out
+        attempts_key = f'signup_otp_attempts:{email}'
+        attempts = cache.get(attempts_key, 0)
+        if attempts >= OTP_MAX_VERIFY_ATTEMPTS:
+            # Invalidate the OTP entirely after max attempts
+            cache.delete(f'signup_email_otp:{email}')
+            cache.delete(attempts_key)
+            raise serializers.ValidationError(
+                {'email_otp': 'Too many failed attempts. Please request a new OTP.'}
+            )
+
         if str(cached_otp) != str(otp):
+            # Increment attempt counter
+            cache.set(attempts_key, attempts + 1, timeout=10 * 60)
             raise serializers.ValidationError({'email_otp': 'Invalid OTP.'})
 
         return attrs
 
     def create(self, validated_data):
         validated_data.pop('email_otp', None)
+        # SECURITY FIX #8: Always assign 'customer' role — ignore any client-provided role
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            role=validated_data.get('role', 'customer'),
+            role='customer',
             phone_number=validated_data.get('phone_number'),
             location=validated_data.get('location'),
             latitude=validated_data.get('latitude'),

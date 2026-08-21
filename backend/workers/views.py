@@ -24,14 +24,18 @@ from .serializers import (
     BookingStatusUpdateSerializer,
     ConversationSerializer,
     MessageSerializer,
+    PublicWorkerProfileSerializer,
     WorkerProfileCreateSerializer,
     WorkerProfileSerializer,
     WorkerWorkImageSerializer,
 )
+from accounts.serializers import _validate_image_magic_bytes
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_USER_UPDATE_FIELDS = {'username', 'phone_number', 'location', 'profile_photo'}
 
 
 def _notify_status_change(booking, new_status):
@@ -183,10 +187,12 @@ class WorkerProfileDetailView(APIView):
                     'bio': serializer.validated_data.get('bio', ''),
                 }
             )
+            # SECURITY FIX #13: Explicit whitelist for user updates (protect against mass assignment)
             user_data = serializer.validated_data.get('user', {})
             if user_data:
                 for attr, value in user_data.items():
-                    setattr(request.user, attr, value)
+                    if attr in ALLOWED_USER_UPDATE_FIELDS:
+                        setattr(request.user, attr, value)
                 request.user.save()
             profile = (
                 WorkerProfile.objects.select_related('user')
@@ -409,6 +415,53 @@ class CustomerBookingListView(APIView):
         return Response({'list': serializer.data}, status=status.HTTP_200_OK)
 
 
+# SECURITY FIX #17: Customer cancellation endpoint with appropriate business logic
+class CustomerBookingCancelView(APIView):
+    """
+    API View to allow customers to cancel their own booking before completion.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, booking_id):
+        if getattr(request.user, 'role', None) != 'customer':
+            return Response(
+                {"error": "Only customer accounts can cancel customer bookings."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            booking = Booking.objects.select_related('customer', 'worker__user').get(
+                id=booking_id,
+                customer=request.user,
+            )
+        except Booking.DoesNotExist:
+            return Response({"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if booking.status in (Booking.STATUS_COMPLETED, Booking.STATUS_DECLINED, Booking.STATUS_CANCELLED):
+            return Response(
+                {"error": f"Cannot cancel a booking that is already {booking.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking.status = Booking.STATUS_CANCELLED
+        booking.save(update_fields=['status', 'updated_at'])
+        booking = Booking.objects.select_related(
+            'customer', 'worker__user', 'conversation', 'review'
+        ).prefetch_related('worker__work_images').get(pk=booking.pk)
+
+        # Notify worker that the booking was cancelled by the customer
+        try:
+            from notifications.services import NotificationService
+            NotificationService.notify_job_cancelled(booking, cancelled_by='customer')
+        except Exception as exc:
+            logger.error('Failed to notify worker of customer-cancelled booking #%s: %s', booking.id, exc)
+
+        return Response(
+            BookingSerializer(booking, context={'request': request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
 class BookingReviewView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -535,6 +588,7 @@ class ConversationMessageView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
+
 class CategoryListView(APIView):
     """
     Lists popular categories for customer browse, derived from registered
@@ -559,6 +613,7 @@ class JobCategoryOptionsView(APIView):
         )
         return Response({'list': names}, status=status.HTTP_200_OK)
 
+
 def _haversine_km(lat1, lon1, lat2, lon2):
     try:
         if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
@@ -581,10 +636,7 @@ def _haversine_km(lat1, lon1, lat2, lon2):
 class NearbyWorkersView(APIView):
     """
     API View to list registered workers.
-    Can be filtered by category name (?category=Plumber), search query
-    (?search=Rajesh), availability (?available_only=true), and user location
-    (?lat=17.385&lng=78.486 or ?latitude=17.385&longitude=78.486).
-    Computes exact geospatial distance in kilometers (distance_km).
+    Uses PublicWorkerProfileSerializer to avoid leaking sensitive user information.
     """
     permission_classes = [AllowAny]
     
@@ -618,7 +670,8 @@ class NearbyWorkersView(APIView):
             )
         queryset = queryset.order_by('-is_online', 'category', 'user__username')
 
-        serializer = WorkerProfileSerializer(
+        # SECURITY FIX #20: Use PublicWorkerProfileSerializer for public endpoints
+        serializer = PublicWorkerProfileSerializer(
             queryset,
             many=True,
             context={'request': request},
@@ -632,7 +685,6 @@ class NearbyWorkersView(APIView):
                 w_lng = w_user.get('longitude')
                 item['distance_km'] = _haversine_km(user_lat, user_lng, w_lat, w_lng)
             
-            # Optionally sort by distance if location was provided and workers have distance_km
             data.sort(
                 key=lambda x: (
                     not x.get('is_online', False),
@@ -641,7 +693,6 @@ class NearbyWorkersView(APIView):
             )
 
         return Response({'list': data}, status=status.HTTP_200_OK)
-
 
 
 class WorkerPublicDetailView(APIView):
@@ -658,8 +709,9 @@ class WorkerPublicDetailView(APIView):
         except WorkerProfile.DoesNotExist:
             return Response({'error': 'Worker not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # SECURITY FIX #20: Use PublicWorkerProfileSerializer for public worker profile
         return Response(
-            WorkerProfileSerializer(profile, context={'request': request}).data,
+            PublicWorkerProfileSerializer(profile, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -704,6 +756,7 @@ class WorkerWorkImageView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # SECURITY FIX #16: Validate size, Content-Type AND Pillow magic bytes
         for upload in uploads:
             if upload.size > MAX_WORK_IMAGE_SIZE:
                 return Response(
@@ -713,6 +766,13 @@ class WorkerWorkImageView(APIView):
             if getattr(upload, 'content_type', '') not in ALLOWED_WORK_IMAGE_TYPES:
                 return Response(
                     {'errors': {'images': ['Upload JPG, PNG, or WebP images only.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                _validate_image_magic_bytes(upload)
+            except Exception as e:
+                return Response(
+                    {'errors': {'images': [str(e)]}},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

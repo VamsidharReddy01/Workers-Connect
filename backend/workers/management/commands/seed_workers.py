@@ -1,15 +1,40 @@
-from django.core.management.base import BaseCommand
+import secrets
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from workers.models import WorkerProfile
 
 User = get_user_model()
 
-class Command(BaseCommand):
-    help = 'Seeds sample workers and categories into the database'
 
-    def handle(self, *args, **kwargs):
+class Command(BaseCommand):
+    help = 'Seeds sample workers and categories into the database (Development only)'
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--force',
+            action='store_true',
+            help='Force running the seed command even when DEBUG=False',
+        )
+        parser.add_argument(
+            '--password',
+            type=str,
+            default=None,
+            help='Explicit password for dev testing accounts (otherwise cryptographically random passwords will be generated)',
+        )
+
+    def handle(self, *args, **options):
+        # SECURITY FIX #7: Prevent running in production environments
+        if not settings.DEBUG and not options.get('force'):
+            raise CommandError(
+                'CRITICAL: seed_workers cannot be run in production (DEBUG=False). '
+                'Pass --force if you understand the risks.'
+            )
+
         self.stdout.write('Seeding sample workers...')
-        
+
+        default_password = options.get('password')
+
         workers_data = [
             {
                 'username': 'Ramesh_Kumar',
@@ -102,6 +127,9 @@ class Command(BaseCommand):
         ]
 
         for data in workers_data:
+            # Generate random password per user if not explicitly provided
+            raw_password = default_password or secrets.token_urlsafe(16)
+
             # Create user if not exists
             user, created = User.objects.get_or_create(
                 email=data['email'],
@@ -113,9 +141,9 @@ class Command(BaseCommand):
                 }
             )
             if created:
-                user.set_password('testpass123')
+                user.set_password(raw_password)
                 user.save()
-                self.stdout.write(f"Created worker user: {user.username}")
+                self.stdout.write(f"Created worker user: {user.username} (password: {raw_password})")
             else:
                 user.username = data['username']
                 user.role = 'worker'

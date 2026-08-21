@@ -1,6 +1,24 @@
 from rest_framework import serializers
-from .models import Booking, BookingReview, Conversation, JobCategory, Message, WorkerProfile, WorkerWorkImage
-from accounts.serializers import UserSerializer, validate_latitude, validate_longitude
+from .models import (
+    Booking,
+    BookingReview,
+    Conversation,
+    JobCategory,
+    Message,
+    WorkerProfile,
+    WorkerWorkImage,
+)
+from accounts.serializers import (
+    PublicUserSerializer,
+    UserSerializer,
+    _validate_image_magic_bytes,
+    validate_latitude,
+    validate_longitude,
+)
+
+ALLOWED_WORK_IMAGE_FORMATS = {'JPEG', 'PNG', 'WEBP'}
+ALLOWED_USER_UPDATE_FIELDS = {'username', 'phone_number', 'location', 'profile_photo'}
+ALLOWED_WORKER_UPDATE_FIELDS = {'category', 'price', 'bio', 'is_online', 'experience_years'}
 
 
 class JobCategorySerializer(serializers.ModelSerializer):
@@ -31,7 +49,37 @@ class WorkerWorkImageSerializer(serializers.ModelSerializer):
 
 
 class WorkerProfileSerializer(serializers.ModelSerializer):
+    """Worker's own profile view (contains full user details)."""
     user = UserSerializer(read_only=True)
+    work_images = WorkerWorkImageSerializer(many=True, read_only=True)
+    cover_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WorkerProfile
+        fields = [
+            'id',
+            'user',
+            'category',
+            'price',
+            'bio',
+            'is_online',
+            'rating',
+            'total_reviews',
+            'experience_years',
+            'cover_image_url',
+            'work_images',
+        ]
+
+    def get_cover_image_url(self, obj):
+        first_image = obj.work_images.first()
+        if not first_image or not first_image.image:
+            return None
+        return _absolute_media_url(first_image.image, self.context.get('request'))
+
+
+# SECURITY FIX #20: Public profile serializer for search/browse (masks sensitive user data)
+class PublicWorkerProfileSerializer(serializers.ModelSerializer):
+    user = PublicUserSerializer(read_only=True)
     work_images = WorkerWorkImageSerializer(many=True, read_only=True)
     cover_image_url = serializers.SerializerMethodField()
 
@@ -100,16 +148,24 @@ class WorkerProfileCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Experience years cannot be negative.')
         return value
 
+    def validate_profile_photo(self, value):
+        if value:
+            return _validate_image_magic_bytes(value)
+        return value
+
+    # SECURITY FIX #13: Explicit whitelist protection against mass assignment
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
         for attr, value in validated_data.items():
-            setattr(instance, attr, value)
+            if attr in ALLOWED_WORKER_UPDATE_FIELDS:
+                setattr(instance, attr, value)
         instance.save()
 
         if user_data:
             user = instance.user
             for attr, value in user_data.items():
-                setattr(user, attr, value)
+                if attr in ALLOWED_USER_UPDATE_FIELDS:
+                    setattr(user, attr, value)
             user.save()
         return instance
 

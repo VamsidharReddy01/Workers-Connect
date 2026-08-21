@@ -1,4 +1,5 @@
-import random
+import logging
+import secrets
 
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -22,6 +23,29 @@ from .serializers import (
     UserSerializer,
 )
 
+# SECURITY FIX #21: Dedicated security logger for audit trail
+security_logger = logging.getLogger('security')
+logger = logging.getLogger(__name__)
+
+# ──────────────────────────────────────────────────────────────
+# OTP configuration from environment
+# ──────────────────────────────────────────────────────────────
+
+OTP_EXPIRY_SECONDS = int(getattr(settings, 'SIGNUP_OTP_EXPIRY_SECONDS', 600))
+OTP_MAX_VERIFY_ATTEMPTS = int(getattr(settings, 'SIGNUP_OTP_MAX_VERIFY_ATTEMPTS', 5))
+
+
+def _get_client_ip(request):
+    """Extract client IP for audit logging."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', 'unknown')
+
+
+# ──────────────────────────────────────────────────────────────
+# Throttle classes
+# ──────────────────────────────────────────────────────────────
 
 class LoginRateThrottle(AnonRateThrottle):
     """Limit login attempts to prevent brute-force attacks."""
@@ -32,6 +56,15 @@ class SignupOtpRateThrottle(AnonRateThrottle):
     """Limit signup OTP requests."""
     rate = '3/minute'
 
+
+class SignupRateThrottle(AnonRateThrottle):
+    """SECURITY FIX #10: Rate limit signup to prevent OTP brute-force."""
+    rate = '10/minute'
+
+
+# ──────────────────────────────────────────────────────────────
+# Views
+# ──────────────────────────────────────────────────────────────
 
 class SendSignupOtpView(APIView):
     """
@@ -57,14 +90,24 @@ class SendSignupOtpView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # SECURITY FIX #11: Do NOT reveal whether the email is already registered.
+        # Always return the same generic success message.
         if User.objects.filter(email__iexact=email).exists():
+            # Log the attempt but return the same response as success
+            security_logger.info(
+                'OTP requested for existing email=%s ip=%s',
+                email, _get_client_ip(request),
+            )
             return Response(
-                {'errors': {'email': ['A user with this email already exists.']}},
-                status=status.HTTP_400_BAD_REQUEST
+                {'message': 'If this email is eligible, an OTP has been sent.'},
+                status=status.HTTP_200_OK
             )
 
-        otp = f'{random.randint(0, 999999):06d}'
-        cache.set(f'signup_email_otp:{email}', otp, timeout=10 * 60)
+        # SECURITY FIX #3: Use cryptographically secure random for OTP
+        otp = f'{secrets.randbelow(1000000):06d}'
+        cache.set(f'signup_email_otp:{email}', otp, timeout=OTP_EXPIRY_SECONDS)
+        # SECURITY FIX #10: Reset attempt counter when new OTP is generated
+        cache.set(f'signup_otp_attempts:{email}', 0, timeout=OTP_EXPIRY_SECONDS)
 
         send_mail(
             subject='Workers Bridge signup OTP',
@@ -74,8 +117,13 @@ class SendSignupOtpView(APIView):
             fail_silently=False,
         )
 
+        security_logger.info(
+            'OTP sent to email=%s ip=%s',
+            email, _get_client_ip(request),
+        )
+
         return Response(
-            {'message': 'OTP sent to your email.'},
+            {'message': 'If this email is eligible, an OTP has been sent.'},
             status=status.HTTP_200_OK
         )
 
@@ -85,14 +133,23 @@ class SignupView(APIView):
     API View to handle user registration.
     """
     permission_classes = [AllowAny]
+    # SECURITY FIX #10: Rate limit signup endpoint
+    throttle_classes = [SignupRateThrottle]
 
     def post(self, request, *args, **kwargs):
         serializer = SignupSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            # Clean up OTP and attempt counter from cache
             cache.delete(f'signup_email_otp:{user.email.lower()}')
+            cache.delete(f'signup_otp_attempts:{user.email.lower()}')
             refresh = RefreshToken.for_user(user)
-            
+
+            security_logger.info(
+                'Signup success user=%s email=%s ip=%s',
+                user.username, user.email, _get_client_ip(request),
+            )
+
             return Response({
                 'message': 'User created successfully',
                 'refresh': str(refresh),
@@ -116,6 +173,12 @@ class LoginView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
+            # SECURITY FIX #21: Log failed login attempts
+            email = request.data.get('email', 'unknown')
+            security_logger.warning(
+                'Login failed email=%s ip=%s',
+                email, _get_client_ip(request),
+            )
             return Response(
                 {'errors': serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
@@ -123,6 +186,12 @@ class LoginView(APIView):
 
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
+
+        # SECURITY FIX #21: Log successful login
+        security_logger.info(
+            'Login success user=%s email=%s ip=%s',
+            user.username, user.email, _get_client_ip(request),
+        )
 
         return Response({
             'refresh': str(refresh),
@@ -179,6 +248,11 @@ class ChangePasswordView(APIView):
         )
         if serializer.is_valid():
             serializer.save()
+            # SECURITY FIX #21: Log password change
+            security_logger.info(
+                'Password changed user=%s ip=%s',
+                request.user.username, _get_client_ip(request),
+            )
             return Response(
                 {'message': 'Password changed successfully.'},
                 status=status.HTTP_200_OK,
@@ -226,7 +300,7 @@ class LogoutView(APIView):
                     {"error": "Refresh token is required"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            
+
             token = RefreshToken(refresh_token)
             # If token blacklisting is installed and configured in settings, blacklist it
             try:
@@ -243,8 +317,14 @@ class LogoutView(APIView):
                     DeviceToken.objects.filter(user=request.user, token=fcm_token).update(is_active=False)
                 else:
                     DeviceToken.objects.filter(user=request.user).update(is_active=False)
-            except Exception:
-                pass  # Device token deactivation is best-effort
+            except Exception as exc:
+                logger.debug('Device token deactivation skipped: %s', exc)
+
+            # SECURITY FIX #21: Log logout
+            security_logger.info(
+                'Logout user=%s ip=%s',
+                request.user.username, _get_client_ip(request),
+            )
 
             return Response(
                 {"message": "Logged out successfully"},

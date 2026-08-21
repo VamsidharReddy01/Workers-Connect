@@ -15,13 +15,20 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+(BASE_DIR / 'logs').mkdir(parents=True, exist_ok=True)
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
+load_dotenv()
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
+# ──────────────────────────────────────────────────────────────
+# Environment helpers
+# ──────────────────────────────────────────────────────────────
 
 def env_bool(name, default=False):
     return os.getenv(name, str(default)).lower() in {'1', 'true', 'yes', 'on'}
@@ -31,8 +38,20 @@ def env_list(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
 
-# SECURITY WARNING: don't run with debug turned on in production.
-DEBUG = env_bool('DEBUG', True)
+# ──────────────────────────────────────────────────────────────
+# Core Security Settings
+# ──────────────────────────────────────────────────────────────
+
+# SECURITY FIX #6: SECRET_KEY must always be set.  No insecure fallback.
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        'SECRET_KEY environment variable is not set. '
+        'Generate one with: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"'
+    )
+
+# SECURITY FIX #4: Default to False — debug must be explicitly enabled.
+DEBUG = env_bool('DEBUG', False)
 
 ALLOWED_HOSTS = env_list(
     'ALLOWED_HOSTS',
@@ -40,7 +59,9 @@ ALLOWED_HOSTS = env_list(
 )
 
 
+# ──────────────────────────────────────────────────────────────
 # Application definition
+# ──────────────────────────────────────────────────────────────
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -56,6 +77,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'workers',
     'notifications',
+    'csp',
 ]
 
 AUTHENTICATION_BACKENDS = [
@@ -73,9 +95,14 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'csp.middleware.CSPMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = env_bool('CORS_ALLOW_ALL_ORIGINS', DEBUG)
+# ──────────────────────────────────────────────────────────────
+# CORS — SECURITY FIX #5: Never allow all origins with credentials
+# ──────────────────────────────────────────────────────────────
+
+CORS_ALLOW_ALL_ORIGINS = False  # SECURITY: Always use an explicit allowlist
 CORS_ALLOWED_ORIGINS = env_list(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000',
@@ -120,25 +147,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-from dotenv import load_dotenv
-
-load_dotenv(BASE_DIR / '.env')
-load_dotenv()
-SECRET_KEY = os.getenv('SECRET_KEY')
-if not SECRET_KEY and not DEBUG:
-    raise RuntimeError('SECRET_KEY must be set when DEBUG=False')
-if not SECRET_KEY:
-    SECRET_KEY = 'dev-only-insecure-secret-key-change-me'
+# ──────────────────────────────────────────────────────────────
+# Database — SECURITY FIX #18: No hardcoded password fallback
+# ──────────────────────────────────────────────────────────────
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'workers_test'),
+        'NAME': os.getenv('DB_NAME', 'workers_db'),
         'USER': os.getenv('DB_USER', 'workers_user'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'workers_password'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
@@ -152,8 +170,10 @@ if 'test' in sys.argv and env_bool('USE_SQLITE_FOR_TESTS', True):
         }
     }
 
+
+# ──────────────────────────────────────────────────────────────
 # Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# ──────────────────────────────────────────────────────────────
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -172,22 +192,29 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'accounts.User'
 
 
+# ──────────────────────────────────────────────────────────────
 # Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
+# ──────────────────────────────────────────────────────────────
 
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+# ──────────────────────────────────────────────────────────────
+# Static / Media files
+# ──────────────────────────────────────────────────────────────
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+
+# ──────────────────────────────────────────────────────────────
+# Security hardening
+# ──────────────────────────────────────────────────────────────
 
 SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG)
 SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG)
@@ -198,8 +225,19 @@ SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', not DEBUG)
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# SECURITY FIX #14: Content-Security-Policy via django-csp
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")
+CSP_IMG_SRC = ("'self'", "data:", "blob:")
+CSP_FONT_SRC = ("'self'",)
+CSP_CONNECT_SRC = ("'self'",)
+CSP_FRAME_ANCESTORS = ("'none'",)
+
+
+# ──────────────────────────────────────────────────────────────
+# Email
+# ──────────────────────────────────────────────────────────────
 
 EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
@@ -213,18 +251,80 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Workers Bridge <no-reply@workersbridge.local>')
 EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '15'))
 
+
+# ──────────────────────────────────────────────────────────────
+# Django REST Framework — SECURITY FIXES #15, #19, #12
+# ──────────────────────────────────────────────────────────────
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # SECURITY FIX #19: Default rate limiting on all endpoints
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',
+        'user': '100/minute',
+    },
+    # SECURITY FIX #12: Default pagination on all list endpoints
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
+# SECURITY FIX #9, #15: JWT token rotation, shorter access lifetime
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
-# Firebase Admin SDK — path to the service account JSON key file.
-# Set FIREBASE_SERVICE_ACCOUNT_PATH in your .env to enable FCM push notifications.
-# If unset, Firebase will attempt Application Default Credentials (GCP environments).
+
+# ──────────────────────────────────────────────────────────────
+# Firebase / Push Notifications
+# ──────────────────────────────────────────────────────────────
+
 FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH', '')
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# ──────────────────────────────────────────────────────────────
+# Logging — SECURITY FIX #21: Security event audit trail
+# ──────────────────────────────────────────────────────────────
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} {levelname} {name} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'security_file': {
+            'class': 'logging.FileHandler',
+            'filename': BASE_DIR / 'logs' / 'security.log',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'security': {
+            'handlers': ['console', 'security_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+        },
+    },
+}
