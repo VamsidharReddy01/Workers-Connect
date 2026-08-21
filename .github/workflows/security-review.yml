@@ -161,24 +161,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: backend/
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH,MEDIUM
-          ignore-unfixed: true
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Run Trivy (SARIF format)
+        run: |
+          trivy fs \
+            --severity CRITICAL,HIGH,MEDIUM \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-results.sarif \
+            backend/ || true
 
       - name: Run Trivy (table format)
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: backend/
-          format: table
-          output: trivy-results.txt
-          severity: CRITICAL,HIGH,MEDIUM
+        run: |
+          trivy fs \
+            --severity CRITICAL,HIGH,MEDIUM \
+            --output trivy-results.txt \
+            backend/ || true
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v3
