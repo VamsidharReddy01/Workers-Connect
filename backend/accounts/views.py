@@ -49,17 +49,24 @@ def _get_client_ip(request):
 
 class LoginRateThrottle(AnonRateThrottle):
     """Limit login attempts to prevent brute-force attacks."""
-    rate = '5/minute'
+
+    def get_rate(self):
+        return getattr(settings, 'LOGIN_THROTTLE_RATE', '5/minute')
 
 
 class SignupOtpRateThrottle(AnonRateThrottle):
     """Limit signup OTP requests."""
-    rate = '3/minute'
+
+    def get_rate(self):
+        return getattr(settings, 'SIGNUP_OTP_THROTTLE_RATE', '3/minute')
 
 
 class SignupRateThrottle(AnonRateThrottle):
     """SECURITY FIX #10: Rate limit signup to prevent OTP brute-force."""
-    rate = '10/minute'
+
+    def get_rate(self):
+        return getattr(settings, 'SIGNUP_THROTTLE_RATE', '10/minute')
+
 
 
 # ──────────────────────────────────────────────────────────────

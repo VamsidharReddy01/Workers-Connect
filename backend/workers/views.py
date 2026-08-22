@@ -467,6 +467,10 @@ class CustomerBookingCancelView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    def post(self, request, booking_id):
+        return self.patch(request, booking_id)
+
+
 
 class BookingReviewView(APIView):
     permission_classes = [IsAuthenticated]

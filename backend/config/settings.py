@@ -273,19 +273,24 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    # SECURITY FIX #19: Default rate limiting on all endpoints
-    'DEFAULT_THROTTLE_CLASSES': [
+    # SECURITY FIX #19: Default rate limiting on all endpoints (disabled during automated testing)
+    'DEFAULT_THROTTLE_CLASSES': [] if IS_TESTING else [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '20/minute',
-        'user': '100/minute',
+        'anon': '100000/minute' if IS_TESTING else '20/minute',
+        'user': '100000/minute' if IS_TESTING else '100/minute',
     },
     # SECURITY FIX #12: Default pagination on all list endpoints
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
 }
+
+LOGIN_THROTTLE_RATE = '100000/minute' if IS_TESTING else '5/minute'
+SIGNUP_OTP_THROTTLE_RATE = '100000/minute' if IS_TESTING else '3/minute'
+SIGNUP_THROTTLE_RATE = '100000/minute' if IS_TESTING else '10/minute'
+
 
 # SECURITY FIX #9, #15: JWT token rotation, shorter access lifetime
 SIMPLE_JWT = {

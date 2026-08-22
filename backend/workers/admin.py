@@ -32,3 +32,5 @@ class WorkerWorkImageAdmin(admin.ModelAdmin):
 class BookingAdmin(admin.ModelAdmin):
     list_display = ('id', 'customer', 'worker', 'service_category', 'status', 'scheduled_at')
     list_filter = ('status', 'service_category')
+    readonly_fields = ('created_at', 'updated_at')
+

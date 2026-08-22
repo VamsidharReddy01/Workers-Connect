@@ -14,6 +14,7 @@ from datetime import timedelta
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.utils import timezone
+from django.core.cache import cache
 from django.test import tag
 
 from selenium import webdriver
@@ -85,6 +86,7 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
 
     def setUp(self):
         """Create a superuser for admin access — fresh per test."""
+        cache.clear()
         self.admin_user = User.objects.create_superuser(
             username=ADMIN_USERNAME,
             email=ADMIN_EMAIL,
@@ -97,17 +99,32 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
     def admin_login(self, username=None, password=None):
         """Log in to Django admin via the login page."""
         self.browser.get(f'{self.live_server_url}/admin/login/')
-        un = self.browser.find_element(By.ID, 'id_username')
+        un = WebDriverWait(self.browser, 10).until(
+            EC.presence_of_element_located((By.ID, 'id_username'))
+        )
         pw = self.browser.find_element(By.ID, 'id_password')
         un.clear()
         un.send_keys(username or ADMIN_USERNAME)
         pw.clear()
         pw.send_keys(password or ADMIN_PASSWORD)
         self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
+        # Wait for page title to update or error note to appear
+        try:
+            WebDriverWait(self.browser, 5).until(
+                lambda d: '/admin/login/' not in d.current_url or len(d.find_elements(By.CSS_SELECTOR, '.errornote')) > 0
+            )
+        except Exception:
+            pass
 
     def admin_logout(self):
         """Log out from Django admin."""
         self.browser.get(f'{self.live_server_url}/admin/logout/')
+        try:
+            submit_btn = self.browser.find_elements(By.CSS_SELECTOR, 'form[action*="logout"] button[type="submit"], input[type="submit"]')
+            if submit_btn:
+                submit_btn[0].click()
+        except Exception:
+            pass
 
     def navigate_to(self, path):
         """Navigate to an absolute path on the live server."""
@@ -189,32 +206,43 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
     def get_error_text(self):
         """Get form error text."""
         try:
-            errors = self.browser.find_elements(By.CSS_SELECTOR, '.errorlist li')
+            errors = self.browser.find_elements(By.CSS_SELECTOR, '.errorlist li, .errornote')
             return ' '.join(e.text for e in errors)
         except NoSuchElementException:
             return ''
 
     def submit_form(self, name='_save'):
-        """Click a submit button by name."""
-        self.browser.find_element(By.NAME, name).click()
+        """Click a submit button by name or default submit button."""
+        if name:
+            try:
+                self.browser.find_element(By.NAME, name).click()
+                return
+            except NoSuchElementException:
+                pass
+        self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
 
     # ── Data factory helpers ──────────────────────────────────────────────
 
     def create_customer(self, suffix='1'):
+        import uuid
+        uid = uuid.uuid4().hex[:4]
+        phone = f'555{uuid.uuid4().int % 9000000 + 1000000}'
         return User.objects.create_user(
             username=f'customer{suffix}',
             email=f'customer{suffix}@test.com',
             password=CUSTOMER_PASSWORD,
-            phone_number=f'55500{suffix.zfill(5)}',
+            phone_number=phone,
             role='customer',
         )
 
     def create_worker(self, suffix='1', category='Plumber'):
+        import uuid
+        phone = f'555{uuid.uuid4().int % 9000000 + 1000000}'
         user = User.objects.create_user(
             username=f'worker{suffix}',
             email=f'worker{suffix}@test.com',
             password=WORKER_PASSWORD,
-            phone_number=f'55510{suffix.zfill(5)}',
+            phone_number=phone,
             role='worker',
         )
         profile = WorkerProfile.objects.create(
@@ -225,6 +253,7 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
             experience_years=3,
         )
         return user, profile
+
 
     def create_booking(self, customer, worker_profile, status='requested'):
         return Booking.objects.create(
@@ -250,14 +279,15 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
             user=user, subject=subject, message='Test message body', status=status,
         )
 
-    def create_notification(self, recipient, ntype='JOB_REQUEST_RECEIVED', is_read=False):
+    def create_notification(self, recipient, ntype='JOB_REQUEST_RECEIVED', is_read=False, title=None, message=None):
         return Notification.objects.create(
             recipient=recipient,
             notification_type=ntype,
-            title=f'Test {ntype}',
-            message='Notification body text',
+            title=title or f'Test {ntype}',
+            message=message or 'Notification body text',
             is_read=is_read,
         )
+
 
     def create_device_token(self, user, token_val='tok_abc123', platform='android'):
         return DeviceToken.objects.create(
@@ -291,6 +321,7 @@ class APIEndToEndTestCase(StaticLiveServerTestCase):
         super().tearDownClass()
 
     def setUp(self):
+        cache.clear()
         self.admin_user = User.objects.create_superuser(
             username=ADMIN_USERNAME,
             email=ADMIN_EMAIL,
@@ -344,6 +375,23 @@ class APIEndToEndTestCase(StaticLiveServerTestCase):
             role='customer',
         )
 
+    def create_worker(self, suffix='1', category='Plumber'):
+        user = User.objects.create_user(
+            username=f'worker{suffix}',
+            email=f'worker{suffix}@test.com',
+            password=WORKER_PASSWORD,
+            phone_number=f'55510{suffix.zfill(5)}',
+            role='worker',
+        )
+        profile = WorkerProfile.objects.create(
+            user=user,
+            category=category,
+            price=Decimal('50.00'),
+            bio=f'Test worker {suffix}',
+            experience_years=3,
+        )
+        return user, profile
+
     def create_worker_with_profile(self, suffix='1', category='Plumber'):
         user = User.objects.create_user(
             username=f'worker{suffix}',
@@ -381,6 +429,18 @@ class APIEndToEndTestCase(StaticLiveServerTestCase):
             booking=booking,
             customer=customer,
             worker=worker_profile,
+        )
+
+    def create_category(self, name='Plumbing', sort_order=0, is_active=True):
+        cat, _ = JobCategory.objects.get_or_create(
+            name=name,
+            defaults={'sort_order': sort_order, 'is_active': is_active},
+        )
+        return cat
+
+    def create_support_ticket(self, user, subject='Test Issue', status='open'):
+        return SupportTicket.objects.create(
+            user=user, subject=subject, message='Test message body', status=status,
         )
 
     def create_notification(self, recipient, ntype='JOB_REQUEST_RECEIVED', is_read=False, booking=None):

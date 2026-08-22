@@ -104,6 +104,10 @@ class MarkNotificationReadView(APIView):
         notification.save(update_fields=['is_read'])
         return Response(NotificationSerializer(notification).data, status=status.HTTP_200_OK)
 
+    def post(self, request, notification_id):
+        return self.patch(request, notification_id)
+
+
 
 class MarkAllReadView(APIView):
     """
