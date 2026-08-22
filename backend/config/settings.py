@@ -162,7 +162,7 @@ DATABASES = {
     }
 }
 
-if 'test' in sys.argv and env_bool('USE_SQLITE_FOR_TESTS', True):
+if ('test' in sys.argv or env_bool('USE_SQLITE_FOR_TESTS', False) or env_bool('TESTING', False)):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -223,6 +223,11 @@ IS_TESTING = (
     or env_bool('USE_SQLITE_FOR_TESTS', False)
 )
 
+if IS_TESTING:
+    PASSWORD_HASHERS = [
+        'django.contrib.auth.hashers.MD5PasswordHasher',
+    ]
+
 # In testing or debug mode, disable SSL redirect to prevent 301 redirects on test clients
 SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', False if (DEBUG or IS_TESTING) else True)
 SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', False if (DEBUG or IS_TESTING) else True)
@@ -252,9 +257,10 @@ CONTENT_SECURITY_POLICY = {
 # Email
 # ──────────────────────────────────────────────────────────────
 
-EMAIL_BACKEND = os.getenv(
-    'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = (
+    'django.core.mail.backends.locmem.EmailBackend'
+    if IS_TESTING
+    else os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
 )
 EMAIL_HOST = os.getenv('EMAIL_HOST', '')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))

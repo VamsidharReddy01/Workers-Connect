@@ -253,6 +253,11 @@ class SignupSerializer(serializers.ModelSerializer):
     def validate_latitude(self, value):
         return validate_latitude(value)
 
+    def validate_password(self, value):
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(value)
+        return value
+
     def validate_longitude(self, value):
         return validate_longitude(value)
 
