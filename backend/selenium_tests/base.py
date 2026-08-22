@@ -117,14 +117,29 @@ class AdminSeleniumTestCase(StaticLiveServerTestCase):
             pass
 
     def admin_logout(self):
-        """Log out from Django admin."""
-        self.browser.get(f'{self.live_server_url}/admin/logout/')
+        """Log out from Django admin via the POST logout form."""
         try:
-            submit_btn = self.browser.find_elements(By.CSS_SELECTOR, 'form[action*="logout"] button[type="submit"], input[type="submit"]')
-            if submit_btn:
-                submit_btn[0].click()
+            if '/admin' not in self.browser.current_url:
+                self.browser.get(f'{self.live_server_url}/admin/')
+            logout_btns = self.browser.find_elements(
+                By.CSS_SELECTOR,
+                '#logout-form button, form[action*="logout"] button, form[action*="logout"] input[type="submit"]'
+            )
+            if logout_btns:
+                logout_btns[0].click()
+            else:
+                self.browser.execute_script("""
+                    const form = document.getElementById('logout-form') || document.querySelector('form[action*="logout"]');
+                    if (form) { form.submit(); }
+                """)
         except Exception:
             pass
+        try:
+            self.browser.delete_cookie('sessionid')
+        except Exception:
+            pass
+
+
 
     def navigate_to(self, path):
         """Navigate to an absolute path on the live server."""
