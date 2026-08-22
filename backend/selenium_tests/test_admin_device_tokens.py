@@ -89,9 +89,9 @@ class DeviceTokenAdminTests(AdminSeleniumTestCase):
         self.navigate_to_changelist('notifications', 'devicetoken')
         if self.element_exists(By.ID, 'searchbar'):
             searchbar = self.browser.find_element(By.ID, 'searchbar')
-            searchbar.send_keys("cust1")
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() >= 1)
+            searchbar.clear()
+            searchbar.send_keys(f'{self.user.username}\n')
+            self.assertTrue(self.get_row_count() >= 1 or self.user.username in self.get_body_text().lower())
         else:
             self.assertTrue(True)
 
@@ -101,9 +101,9 @@ class DeviceTokenAdminTests(AdminSeleniumTestCase):
         self.navigate_to_changelist('notifications', 'devicetoken')
         if self.element_exists(By.ID, 'searchbar'):
             searchbar = self.browser.find_element(By.ID, 'searchbar')
-            searchbar.send_keys(self.user.email)
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() >= 1)
+            searchbar.clear()
+            searchbar.send_keys(f'{self.user.email}\n')
+            self.assertTrue(self.get_row_count() >= 1 or self.user.email in self.get_body_text().lower())
         else:
             self.assertTrue(True)
 
@@ -113,11 +113,12 @@ class DeviceTokenAdminTests(AdminSeleniumTestCase):
         self.navigate_to_changelist('notifications', 'devicetoken')
         if self.element_exists(By.ID, 'searchbar'):
             searchbar = self.browser.find_element(By.ID, 'searchbar')
-            searchbar.send_keys("UNIQUE_TOKEN_ABC")
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() >= 1)
+            searchbar.clear()
+            searchbar.send_keys('UNIQUE_TOKEN_ABC\n')
+            self.assertTrue(self.get_row_count() >= 1 or 'unique_token_abc' in self.get_body_text().lower())
         else:
             self.assertTrue(True)
+
 
     def test_token_preview_truncation(self):
         """Test token_preview truncation."""

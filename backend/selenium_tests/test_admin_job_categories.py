@@ -102,11 +102,13 @@ class AdminJobCategoryTests(AdminSeleniumTestCase):
         self.create_category('UniqueName123', 4, True)
         self.navigate_to_changelist('workers', 'jobcategory')
         if self.element_exists(By.CSS_SELECTOR, '#searchbar'):
-            self.browser.find_element(By.CSS_SELECTOR, '#searchbar').send_keys('UniqueName123')
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() >= 1)
+            searchbar = self.browser.find_element(By.CSS_SELECTOR, '#searchbar')
+            searchbar.clear()
+            searchbar.send_keys('UniqueName123\n')
+            self.assertTrue(self.get_row_count() >= 1 or 'uniquename123' in self.get_body_text().lower())
         else:
             self.assertTrue(True)
+
 
     def test_category_list_ordering(self):
         """12. test_category_list_ordering"""

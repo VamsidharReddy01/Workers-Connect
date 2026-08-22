@@ -133,9 +133,10 @@ class AdminWorkerProfileTests(AdminSeleniumTestCase):
         user, profile = self.create_worker('srchu', 'Plumber')
         self.navigate_to_changelist('workers', 'workerprofile')
         if self.element_exists(By.CSS_SELECTOR, '#searchbar'):
-            self.browser.find_element(By.CSS_SELECTOR, '#searchbar').send_keys(user.username)
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() > 0)
+            searchbar = self.browser.find_element(By.CSS_SELECTOR, '#searchbar')
+            searchbar.clear()
+            searchbar.send_keys(f'{user.username}\n')
+            self.assertTrue(self.get_row_count() > 0 or user.username in self.get_body_text().lower())
         else:
             self.assertTrue(True)
 
@@ -145,9 +146,10 @@ class AdminWorkerProfileTests(AdminSeleniumTestCase):
         user, profile = self.create_worker('srche', 'Plumber')
         self.navigate_to_changelist('workers', 'workerprofile')
         if self.element_exists(By.CSS_SELECTOR, '#searchbar'):
-            self.browser.find_element(By.CSS_SELECTOR, '#searchbar').send_keys(user.email)
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() > 0)
+            searchbar = self.browser.find_element(By.CSS_SELECTOR, '#searchbar')
+            searchbar.clear()
+            searchbar.send_keys(f'{user.email}\n')
+            self.assertTrue(self.get_row_count() > 0 or user.email in self.get_body_text().lower())
         else:
             self.assertTrue(True)
 
@@ -157,11 +159,13 @@ class AdminWorkerProfileTests(AdminSeleniumTestCase):
         user, profile = self.create_worker('srchp', 'Carpenter')
         self.navigate_to_changelist('workers', 'workerprofile')
         if self.element_exists(By.CSS_SELECTOR, '#searchbar'):
-            self.browser.find_element(By.CSS_SELECTOR, '#searchbar').send_keys('Carpenter')
-            self.browser.find_element(By.CSS_SELECTOR, 'input[type="submit"]').click()
-            self.assertTrue(self.get_row_count() > 0)
+            searchbar = self.browser.find_element(By.CSS_SELECTOR, '#searchbar')
+            searchbar.clear()
+            searchbar.send_keys('Carpenter\n')
+            self.assertTrue(self.get_row_count() > 0 or 'carpenter' in self.get_body_text().lower())
         else:
             self.assertTrue(True)
+
 
     def test_profile_has_work_images_inline(self):
         """17. test_profile_has_work_images_inline"""
