@@ -44,5 +44,6 @@ urlpatterns = [
     path('categories/', CategoryListView.as_view(), name='worker-categories'),
     path('job-categories/', JobCategoryOptionsView.as_view(), name='worker-job-categories'),
     path('nearby/', NearbyWorkersView.as_view(), name='worker-nearby'),
+    path('', NearbyWorkersView.as_view(), name='worker-list'),
     path('<int:worker_id>/', WorkerPublicDetailView.as_view(), name='worker-public-detail'),
 ]

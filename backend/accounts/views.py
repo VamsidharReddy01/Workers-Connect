@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -22,6 +23,7 @@ from .serializers import (
     SupportTicketSerializer,
     UserSerializer,
 )
+from accounts.services.geocoding import forward_geocode, reverse_geocode
 
 # SECURITY FIX #21: Dedicated security logger for audit trail
 security_logger = logging.getLogger('security')
@@ -116,13 +118,20 @@ class SendSignupOtpView(APIView):
         # SECURITY FIX #10: Reset attempt counter when new OTP is generated
         cache.set(f'signup_otp_attempts:{email}', 0, timeout=OTP_EXPIRY_SECONDS)
 
-        send_mail(
-            subject='Workers Bridge signup OTP',
-            message=f'Your Workers Bridge signup OTP is {otp}. It expires in 10 minutes.',
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-            recipient_list=[email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject='Workers Bridge signup OTP',
+                message=f'Your Workers Bridge signup OTP is {otp}. It expires in 10 minutes.',
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            logger.error('Failed to send OTP email to %s: %s', email, exc)
+            return Response(
+                {'error': 'Failed to send OTP email. Please check the email server configuration or try again later.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         security_logger.info(
             'OTP sent to email=%s ip=%s',
@@ -153,12 +162,84 @@ class SignupView(APIView):
             refresh = RefreshToken.for_user(user)
 
             security_logger.info(
-                'Signup success user=%s email=%s ip=%s',
-                user.username, user.email, _get_client_ip(request),
+                'Signup success user=%s email=%s role=%s ip=%s',
+                user.username, user.email, user.role, _get_client_ip(request),
             )
 
             return Response({
                 'message': 'User created successfully',
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(
+            {'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class WorkerSignupView(APIView):
+    """
+    API View to handle worker registration specifically.
+    Guarantees role='worker' and creates WorkerProfile.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [SignupRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        data['role'] = 'worker'
+        serializer = SignupSerializer(data=data)
+        if serializer.is_valid():
+            user = serializer.save()
+            cache.delete(f'signup_email_otp:{user.email.lower()}')
+            cache.delete(f'signup_otp_attempts:{user.email.lower()}')
+            refresh = RefreshToken.for_user(user)
+
+            security_logger.info(
+                'Worker signup success user=%s email=%s ip=%s',
+                user.username, user.email, _get_client_ip(request),
+            )
+
+            return Response({
+                'message': 'Worker account created successfully',
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'user': UserSerializer(user).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(
+            {'errors': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class CustomerSignupView(APIView):
+    """
+    API View to handle customer registration specifically.
+    Guarantees role='customer'.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [SignupRateThrottle]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        data['role'] = 'customer'
+        serializer = SignupSerializer(data=data)
+        if serializer.is_valid():
+            user = serializer.save()
+            cache.delete(f'signup_email_otp:{user.email.lower()}')
+            cache.delete(f'signup_otp_attempts:{user.email.lower()}')
+            refresh = RefreshToken.for_user(user)
+
+            security_logger.info(
+                'Customer signup success user=%s email=%s ip=%s',
+                user.username, user.email, _get_client_ip(request),
+            )
+
+            return Response({
+                'message': 'Customer account created successfully',
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'user': UserSerializer(user).data
@@ -342,3 +423,166 @@ class LogoutView(APIView):
                 {"error": "Invalid token or error during logout"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class GeocodeLookupView(APIView):
+    """
+    Public endpoint for geocode lookups during registration.
+    Accepts latitude+longitude for reverse geocoding or location_name for forward geocoding.
+    Rate-limited to prevent abuse.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [SignupOtpRateThrottle]  # Reuse existing rate limiter
+
+    def post(self, request, *args, **kwargs):
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        location_name = (request.data.get('location_name') or '').strip()
+
+        # Reverse geocode: coordinates → address
+        if latitude is not None and longitude is not None:
+            try:
+                lat = float(latitude)
+                lon = float(longitude)
+            except (TypeError, ValueError):
+                return Response(
+                    {'error': 'Invalid coordinate values.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                return Response(
+                    {'error': 'Coordinates out of range.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            result = reverse_geocode(lat, lon)
+            if result:
+                return Response(result, status=status.HTTP_200_OK)
+            return Response(
+                {'error': 'Could not resolve address from coordinates.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Forward geocode: address → coordinates
+        if location_name:
+            result = forward_geocode(location_name)
+            if result:
+                return Response(result, status=status.HTTP_200_OK)
+            return Response(
+                {'error': 'Could not resolve coordinates from location name.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {'error': 'Provide latitude+longitude or location_name.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class UpdateLocationView(APIView):
+    """
+    Authenticated endpoint to update the current user's location.
+    Performs server-side geocoding (reverse for GPS, forward for manual).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, *args, **kwargs):
+        user = request.user
+        location_source = (request.data.get('location_source') or '').strip()
+        latitude = request.data.get('latitude')
+        longitude = request.data.get('longitude')
+        location_name = (request.data.get('location_name') or '').strip()
+
+        if location_source not in ('gps', 'manual', ''):
+            return Response(
+                {'error': 'location_source must be "gps" or "manual".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # GPS flow
+        if location_source == 'gps' or (latitude is not None and longitude is not None):
+            if latitude is None or longitude is None:
+                return Response(
+                    {'error': 'Latitude and longitude are required for GPS location.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                lat = float(latitude)
+                lon = float(longitude)
+            except (TypeError, ValueError):
+                return Response(
+                    {'error': 'Invalid coordinate values.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                return Response(
+                    {'error': 'Coordinates out of range.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            resolved_name = location_name
+            if not resolved_name:
+                geo_result = reverse_geocode(lat, lon)
+                if geo_result:
+                    resolved_name = geo_result.get('location_name', '')
+
+            user.latitude = lat
+            user.longitude = lon
+            user.location = resolved_name or user.location or ''
+            user.location_source = 'gps'
+            user.location_permission_granted = True
+            user.location_updated_at = timezone.now()
+            user.save(update_fields=[
+                'latitude', 'longitude', 'location', 'location_source',
+                'location_permission_granted', 'location_updated_at',
+            ])
+
+            security_logger.info(
+                'Location updated (GPS) user=%s ip=%s',
+                user.username, _get_client_ip(request),
+            )
+
+            return Response({
+                'latitude': float(user.latitude),
+                'longitude': float(user.longitude),
+                'location_name': user.location,
+                'location_source': user.location_source,
+            }, status=status.HTTP_200_OK)
+
+        # Manual flow
+        if location_name:
+            user.location = location_name
+            user.location_source = 'manual'
+
+            geo_result = forward_geocode(location_name)
+            if geo_result:
+                user.latitude = geo_result.get('latitude')
+                user.longitude = geo_result.get('longitude')
+                resolved_name = geo_result.get('location_name')
+                if resolved_name:
+                    user.location = resolved_name
+            else:
+                user.latitude = None
+                user.longitude = None
+
+            user.location_updated_at = timezone.now()
+            user.save(update_fields=[
+                'latitude', 'longitude', 'location', 'location_source',
+                'location_updated_at',
+            ])
+
+            security_logger.info(
+                'Location updated (manual) user=%s ip=%s',
+                user.username, _get_client_ip(request),
+            )
+
+            return Response({
+                'latitude': float(user.latitude) if user.latitude else None,
+                'longitude': float(user.longitude) if user.longitude else None,
+                'location_name': user.location,
+                'location_source': user.location_source,
+            }, status=status.HTTP_200_OK)
+
+        return Response(
+            {'error': 'Provide latitude+longitude or location_name.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

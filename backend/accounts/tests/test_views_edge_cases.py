@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from django.test import TestCase
 from django.core.cache import cache
 from rest_framework.test import APIClient
@@ -20,6 +21,14 @@ class AccountViewsEdgeCasesTests(TestCase):
         )
 
     # ── SendSignupOtpView Edge Cases ──────────────────────────────────────────
+    @patch('accounts.views.send_mail')
+    def test_send_otp_mail_delivery_failure(self, mock_send_mail):
+        import smtplib
+        mock_send_mail.side_effect = smtplib.SMTPAuthenticationError(535, b'5.7.8 Bad credentials')
+        res = self.client.post('/api/auth/signup/send-otp/', {'email': 'testfailure@example.com'})
+        self.assertEqual(res.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn('error', res.data)
+
     def test_send_otp_whitespace_email(self):
         res = self.client.post('/api/auth/signup/send-otp/', {'email': '   '})
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)

@@ -121,6 +121,7 @@ class UserSerializer(serializers.ModelSerializer):
             'latitude',
             'longitude',
             'location_permission_granted',
+            'location_source',
             'location_updated_at',
             'profile_photo',
             'profile_photo_url',
@@ -195,6 +196,22 @@ class UserSerializer(serializers.ModelSerializer):
         old_photo = instance.profile_photo if new_photo and instance.profile_photo else None
         if 'latitude' in validated_data or 'longitude' in validated_data:
             validated_data['location_updated_at'] = timezone.now()
+
+        # Handle reverse geocoding for coordinate updates without location text
+        latitude = validated_data.get('latitude', getattr(instance, 'latitude', None))
+        longitude = validated_data.get('longitude', getattr(instance, 'longitude', None))
+        location_text = validated_data.get('location', '')
+
+        if 'latitude' in validated_data and 'longitude' in validated_data:
+            if latitude is not None and longitude is not None and not location_text:
+                try:
+                    from accounts.services.geocoding import reverse_geocode
+                    geo_result = reverse_geocode(latitude, longitude)
+                    if geo_result and geo_result.get('location_name'):
+                        validated_data['location'] = geo_result['location_name']
+                except Exception as exc:
+                    logger.warning('Reverse geocoding during profile update failed: %s', exc)
+
         instance = super().update(instance, validated_data)
         if old_photo and old_photo.name != instance.profile_photo.name:
             old_photo.delete(save=False)
@@ -212,6 +229,8 @@ class SignupSerializer(serializers.ModelSerializer):
     )
     email = serializers.EmailField(required=True)
     email_otp = serializers.CharField(write_only=True, min_length=6, max_length=6)
+    role = serializers.ChoiceField(choices=['customer', 'worker'], default='customer', required=False)
+    category = serializers.CharField(write_only=True, required=False, allow_blank=True, default='')
 
     class Meta:
         model = User
@@ -220,22 +239,22 @@ class SignupSerializer(serializers.ModelSerializer):
             'email',
             'password',
             'role',
+            'category',
             'phone_number',
             'location',
             'latitude',
             'longitude',
             'location_permission_granted',
+            'location_source',
             'email_otp',
         ]
         extra_kwargs = {
-            # SECURITY FIX #8: role is read-only — server assigns it, users cannot
-            # choose their own role during signup.
-            'role': {'required': False, 'read_only': True},
             'phone_number': {'required': False},
             'location': {'required': False},
             'latitude': {'required': False},
             'longitude': {'required': False},
             'location_permission_granted': {'required': False},
+            'location_source': {'required': False},
         }
 
     def validate_email(self, value):
@@ -298,21 +317,77 @@ class SignupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop('email_otp', None)
-        # SECURITY FIX #8: Always assign 'customer' role — ignore any client-provided role
+        category = validated_data.pop('category', '').strip()
+        role = validated_data.get('role', 'customer')
+        if role not in ('customer', 'worker'):
+            role = 'customer'
+
+        location_source = validated_data.get('location_source', '')
+        latitude = validated_data.get('latitude')
+        longitude = validated_data.get('longitude')
+        location_text = validated_data.get('location', '')
+
+        # GPS flow: coordinates provided, attempt reverse geocode for location name
+        if latitude is not None and longitude is not None:
+            if not location_source:
+                location_source = 'gps'
+            if not location_text:
+                try:
+                    from accounts.services.geocoding import reverse_geocode
+                    geo_result = reverse_geocode(latitude, longitude)
+                    if geo_result and geo_result.get('location_name'):
+                        location_text = geo_result['location_name']
+                except Exception as exc:
+                    logger.warning('Reverse geocoding during signup failed: %s', exc)
+
+        # Manual flow: location text provided but no coordinates
+        elif location_text and latitude is None and longitude is None:
+            if not location_source:
+                location_source = 'manual'
+            try:
+                from accounts.services.geocoding import forward_geocode
+                geo_result = forward_geocode(location_text)
+                if geo_result:
+                    latitude = geo_result.get('latitude')
+                    longitude = geo_result.get('longitude')
+                    resolved_name = geo_result.get('location_name')
+                    if resolved_name:
+                        location_text = resolved_name
+            except Exception as exc:
+                logger.warning('Forward geocoding during signup failed: %s', exc)
+
         user = User.objects.create_user(
             username=validated_data['username'],
             email=validated_data['email'],
             password=validated_data['password'],
-            role='customer',
+            role=role,
             phone_number=validated_data.get('phone_number'),
-            location=validated_data.get('location'),
-            latitude=validated_data.get('latitude'),
-            longitude=validated_data.get('longitude'),
+            location=location_text or validated_data.get('location', ''),
+            latitude=latitude,
+            longitude=longitude,
             location_permission_granted=validated_data.get('location_permission_granted', False),
+            location_source=location_source or None,
             location_updated_at=timezone.now()
-            if validated_data.get('latitude') is not None and validated_data.get('longitude') is not None
+            if latitude is not None and longitude is not None
             else None,
         )
+
+        if role == 'worker':
+            from decimal import Decimal
+            from workers.models import WorkerProfile
+            WorkerProfile.objects.get_or_create(
+                user=user,
+                defaults={
+                    'category': category or 'General Maintenance',
+                    'price': Decimal('30.00'),
+                    'bio': '',
+                    'is_online': True,
+                    'rating': 5.0,
+                    'total_reviews': 0,
+                    'experience_years': 1,
+                }
+            )
+
         return user
 
 

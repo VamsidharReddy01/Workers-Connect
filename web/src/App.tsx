@@ -217,6 +217,8 @@ function AuthPage({ onAuthenticated }: { onAuthenticated: (result: AuthResponse)
   const [otpSent, setOtpSent] = useState(false);
   const [signupCoordinates, setSignupCoordinates] = useState<Coordinates | null>(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationSource, setLocationSource] = useState<'gps' | 'manual' | null>(null);
+  const [signupLocation, setSignupLocation] = useState('');
   const [locationMessage, setLocationMessage] = useState(
     'Location helps match jobs and directions. You can continue without it.',
   );
@@ -224,19 +226,34 @@ function AuthPage({ onAuthenticated }: { onAuthenticated: (result: AuthResponse)
   const [error, setError] = useState('');
 
   async function captureSignupLocation() {
-    setLocationMessage('Requesting browser location...');
+    setLocationMessage('Getting your current location...');
     try {
       const coords = await requestBrowserLocation();
       setSignupCoordinates(coords);
       setLocationPermissionGranted(true);
-      setLocationMessage('Location captured for location-based services.');
+      setLocationSource('gps');
+      setLocationMessage('Finding your address...');
+
+      // Reverse geocode via backend to get address name
+      try {
+        const geo = await api.geocode({ latitude: coords.latitude, longitude: coords.longitude });
+        if (geo.location_name) {
+          setSignupLocation(geo.location_name);
+          setLocationMessage('✓ Current location captured');
+        } else {
+          setLocationMessage('✓ GPS coordinates captured');
+        }
+      } catch {
+        setLocationMessage('✓ GPS coordinates captured');
+      }
     } catch (err) {
       setSignupCoordinates(null);
       setLocationPermissionGranted(false);
+      setLocationSource(null);
       setLocationMessage(
         err instanceof Error
-          ? `${err.message} Location-based jobs and directions may be limited.`
-          : 'Location unavailable. Location-based jobs and directions may be limited.',
+          ? `${err.message} You can enter your location manually.`
+          : 'Location unavailable. You can enter your location manually.',
       );
     }
   }
@@ -282,16 +299,20 @@ function AuthPage({ onAuthenticated }: { onAuthenticated: (result: AuthResponse)
     setLoading(true);
     setError('');
     try {
+      const locationText = signupLocation.trim() || String(form.get('location') || '');
+      const category = role === 'worker' ? String(form.get('category') || 'General Maintenance') : undefined;
       const result = await api.signup({
         username: String(form.get('username')),
         email: emailForOtp,
         password: String(form.get('password')),
         role,
+        category,
         phone_number: String(form.get('phone_number') || ''),
-        location: String(form.get('location') || ''),
+        location: locationText,
         latitude: signupCoordinates?.latitude ?? null,
         longitude: signupCoordinates?.longitude ?? null,
         location_permission_granted: locationPermissionGranted,
+        location_source: locationSource ?? (locationText ? 'manual' : undefined),
         email_otp: String(form.get('email_otp')),
       });
       onAuthenticated(result);
@@ -356,44 +377,123 @@ function AuthPage({ onAuthenticated }: { onAuthenticated: (result: AuthResponse)
         ) : (
           <>
             <div className="role-grid" aria-label="Select account role">
-              <button type="button" className={role === 'customer' ? 'selected' : ''} onClick={() => setRole('customer')}>
+              <button
+                type="button"
+                className={role === 'customer' ? 'selected' : ''}
+                onClick={() => setRole('customer')}
+              >
                 <UserRound /> Customer
               </button>
-              <button type="button" className={role === 'worker' ? 'selected' : ''} onClick={() => setRole('worker')}>
+              <button
+                type="button"
+                className={role === 'worker' ? 'selected worker-selected' : ''}
+                onClick={() => setRole('worker')}
+              >
                 <Wrench /> Worker
               </button>
             </div>
 
             {!otpSent ? (
               <form className="form-stack" onSubmit={sendOtp}>
-                <div>
-                  <h2>Send OTP</h2>
-                  <p className="muted">Enter your email and we will send a one-time code.</p>
-                </div>
+                {role === 'worker' ? (
+                  <div className="worker-signup-callout">
+                    <span className="badge worker-badge">WORKER</span>
+                    <h2>Wanna Join as Worker?</h2>
+                    <p className="muted">Enter your email to start getting job requests from nearby customers.</p>
+                  </div>
+                ) : (
+                  <div className="customer-signup-callout">
+                    <span className="badge customer-badge">CUSTOMER</span>
+                    <h2>Create Customer Account</h2>
+                    <p className="muted">Enter your email and we will send a one-time code.</p>
+                    <button type="button" className="join-worker-banner-link" onClick={() => setRole('worker')}>
+                      <Wrench size={15} /> <span><strong>Wanna Join as Worker?</strong> Offer your services & earn →</span>
+                    </button>
+                  </div>
+                )}
                 <Field label="Email address" name="email" type="email" icon={<Mail />} required />
-                <button className="primary-action" disabled={loading}>
-                  {loading ? 'Sending...' : 'Send OTP'}
+                <button
+                  className={role === 'worker' ? 'primary-action worker-action-btn' : 'primary-action'}
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : role === 'worker' ? 'Send Worker OTP' : 'Send OTP'}
                 </button>
               </form>
             ) : (
               <form className="form-stack" onSubmit={signup}>
-                <div>
-                  <h2>Verify email</h2>
-                  <p className="muted">Enter the 6-digit code sent to {emailForOtp}.</p>
-                </div>
-                <Field label="Full name" name="username" required />
+                {role === 'worker' ? (
+                  <div className="worker-signup-callout">
+                    <span className="badge worker-badge"> WORKER REGISTRATION</span>
+                    <h2>Wanna Join as Worker?</h2>
+                    <p className="muted">Enter the 6-digit code sent to {emailForOtp} and complete your worker profile.</p>
+                  </div>
+                ) : (
+                  <div className="customer-signup-callout">
+                    <span className="badge customer-badge">CUSTOMER SIGNUP</span>
+                    <h2>Verify email</h2>
+                    <p className="muted">Enter the 6-digit code sent to {emailForOtp}.</p>
+                    <button type="button" className="join-worker-banner-link" onClick={() => setRole('worker')}>
+                      <Wrench size={15} /> <span><strong>Wanna Join as Worker?</strong> Switch to Worker registration →</span>
+                    </button>
+                  </div>
+                )}
+
+                <Field
+                  label={role === 'worker' ? 'Full name / Professional name' : 'Full name'}
+                  name="username"
+                  required
+                />
+
+                {role === 'worker' && (
+                  <label className="field">
+                    <span>Primary Trade / Category</span>
+                    <select name="category" defaultValue="Electrician" className="input-select">
+                      <option value="Electrician">Electrician</option>
+                      <option value="Plumber">Plumber</option>
+                      <option value="Carpenter">Carpenter</option>
+                      <option value="House Cleaner">House Cleaner</option>
+                      <option value="Painter">Painter</option>
+                      <option value="AC Repair">AC Repair</option>
+                      <option value="Mason">Mason</option>
+                      <option value="Appliance Repair">Appliance Repair</option>
+                      <option value="Gardener">Gardener</option>
+                      <option value="General Maintenance">General Maintenance</option>
+                    </select>
+                  </label>
+                )}
+
                 <Field label="Phone number" name="phone_number" />
-                <Field label="Location" name="location" />
+                <Field
+                  label={role === 'worker' ? 'Service base location' : 'Location'}
+                  name="location"
+                  value={signupLocation}
+                  onChange={(e) => {
+                    setSignupLocation(e.target.value);
+                    if (locationSource === 'gps') {
+                      setSignupCoordinates(null);
+                      setLocationSource('manual');
+                      setLocationMessage('');
+                    }
+                  }}
+                  placeholder="e.g. Madhapur, Hyderabad"
+                />
                 <div className="location-capture">
                   <button type="button" className="secondary-action" onClick={captureSignupLocation}>
-                    Use current location
+                    {signupCoordinates ? 'Update current location' : 'Use current location'}
                   </button>
-                  <p className="muted">{locationMessage}</p>
+                  {locationMessage && (
+                    <p className={locationMessage.startsWith('✓') ? 'success-text' : 'muted'}>
+                      {locationMessage}
+                    </p>
+                  )}
                 </div>
                 <Field label="Email OTP" name="email_otp" maxLength={6} required />
                 <Field label="Password" name="password" type="password" required />
-                <button className="primary-action" disabled={loading}>
-                  {loading ? 'Creating...' : 'Continue'}
+                <button
+                  className={role === 'worker' ? 'primary-action worker-action-btn' : 'primary-action'}
+                  disabled={loading}
+                >
+                  {loading ? 'Creating...' : role === 'worker' ? 'Join as Worker' : 'Create Customer Account'}
                 </button>
                 <button type="button" className="link-button" onClick={() => setOtpSent(false)}>
                   Use a different email
@@ -494,10 +594,21 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
   const [search, setSearch] = useState('');
   const [availableOnly, setAvailableOnly] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [serviceCoordinates, setServiceCoordinates] = useState<Coordinates | null>(null);
-  const [serviceLocationMessage, setServiceLocationMessage] = useState(
-    'Use your current GPS location for accurate worker directions.',
+
+  // Service Location States
+  const [serviceAddress, setServiceAddress] = useState(session.user.location ?? '');
+  const [serviceCoordinates, setServiceCoordinates] = useState<Coordinates | null>(
+    session.user.latitude && session.user.longitude
+      ? { latitude: Number(session.user.latitude), longitude: Number(session.user.longitude) }
+      : null,
   );
+  const [serviceLocationSource, setServiceLocationSource] = useState<'saved' | 'gps' | 'manual' | null>(
+    session.user.location || (session.user.latitude && session.user.longitude) ? 'saved' : null,
+  );
+  const [serviceLocationMessage, setServiceLocationMessage] = useState(
+    session.user.location ? '✓ Using your saved location' : '',
+  );
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
   const navigate = useNavigate();
 
   const loadCustomerBookings = useCallback(() => {
@@ -510,14 +621,19 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
   }, [loadCustomerBookings]);
 
   useEffect(() => {
+    const lat = session.user.latitude ? Number(session.user.latitude) : null;
+    const lng = session.user.longitude ? Number(session.user.longitude) : null;
     api
-      .nearbyWorkers({ category: selectedCategory, search, availableOnly })
+      .nearbyWorkers(
+        { category: selectedCategory, search, availableOnly, lat, lng },
+        session.accessToken,
+      )
       .then((result) => {
         setWorkers(result.list);
         setSelectedWorker((current) => current ?? result.list[0] ?? null);
       })
       .catch(() => notify('Could not load workers.', 'error'));
-  }, [availableOnly, notify, search, selectedCategory]);
+  }, [availableOnly, notify, search, selectedCategory, session.accessToken, session.user.latitude, session.user.longitude]);
 
   async function bookService(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -525,39 +641,71 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const scheduledAt = String(form.get('scheduled_at'));
+    const finalAddress = serviceAddress.trim() || String(form.get('address') || session.user.location || '');
+
     try {
       const booking = await api.createBooking(session.accessToken, {
         worker_id: selectedWorker.id,
         service_category: selectedWorker.category,
         description: String(form.get('description')),
-        address: String(form.get('address') || session.user.location || ''),
-        service_latitude: serviceCoordinates?.latitude ?? null,
-        service_longitude: serviceCoordinates?.longitude ?? null,
+        address: finalAddress,
+        service_latitude: serviceCoordinates ? parseFloat(serviceCoordinates.latitude.toFixed(6)) : null,
+        service_longitude: serviceCoordinates ? parseFloat(serviceCoordinates.longitude.toFixed(6)) : null,
         location_permission_granted: Boolean(serviceCoordinates),
+        service_location_source: serviceLocationSource ?? (finalAddress ? 'manual' : undefined),
         scheduled_at: new Date(scheduledAt).toISOString(),
         total_amount: selectedWorker.price,
       });
       setBookings((current) => [booking, ...current]);
       notify('Booking request sent.');
       formElement.reset();
+      // Restore default saved location state
+      setServiceAddress(session.user.location ?? '');
+      setServiceCoordinates(
+        session.user.latitude && session.user.longitude
+          ? { latitude: Number(session.user.latitude), longitude: Number(session.user.longitude) }
+          : null,
+      );
+      setServiceLocationSource(
+        session.user.location || (session.user.latitude && session.user.longitude) ? 'saved' : null,
+      );
+      setServiceLocationMessage(
+        session.user.location ? '✓ Using your saved location' : '',
+      );
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Could not create booking.', 'error');
     }
   }
 
   async function captureServiceLocation() {
-    setServiceLocationMessage('Requesting service location...');
+    setIsCapturingLocation(true);
+    setServiceLocationMessage('Getting your current location...');
     try {
       const coords = await requestBrowserLocation();
       setServiceCoordinates(coords);
-      setServiceLocationMessage('Service GPS location captured for this booking.');
+      setServiceLocationSource('gps');
+      setServiceLocationMessage('Finding your address...');
+
+      try {
+        const geo = await api.geocode({ latitude: coords.latitude, longitude: coords.longitude });
+        if (geo.location_name) {
+          setServiceAddress(geo.location_name);
+          setServiceLocationMessage('✓ Current service location captured');
+        } else {
+          setServiceLocationMessage('✓ Current service location captured');
+        }
+      } catch {
+        setServiceLocationMessage('✓ Current service location captured');
+      }
     } catch (err) {
-      setServiceCoordinates(null);
+      // Keep existing saved or manual address on failure
       setServiceLocationMessage(
         err instanceof Error
-          ? `${err.message} You can still book, but directions will be unavailable.`
-          : 'Location unavailable. You can still book, but directions will be unavailable.',
+          ? `${err.message} You can enter your address manually.`
+          : 'Location unavailable. You can enter your address manually.',
       );
+    } finally {
+      setIsCapturingLocation(false);
     }
   }
 
@@ -616,6 +764,16 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
               <div>
                 <strong>{worker.user.username}</strong>
                 <span>{worker.category}</span>
+                <div className="worker-location-row">
+                  <small className="worker-loc">
+                    <MapPin size={12} /> {worker.location_name || worker.user.location || 'Location unavailable'}
+                  </small>
+                  {worker.distance_km != null && (
+                    <small className="worker-dist">
+                      • {worker.distance_km} km away
+                    </small>
+                  )}
+                </div>
                 <small><Star size={14} /> {worker.rating} ({worker.total_reviews})</small>
               </div>
               <div className="worker-meta">
@@ -641,19 +799,46 @@ function CustomerDashboard({ session, notify }: ScreenProps) {
             </div>
             <div className="facts-list">
               <span><ShieldCheck /> {selectedWorker.experience_years}+ years experience</span>
-              <span><MapPin /> {selectedWorker.user.location || 'Service area available'}</span>
+              <span>
+                <MapPin /> {selectedWorker.location_name || selectedWorker.user.location || 'Service area available'}
+                {selectedWorker.distance_km != null ? ` • ${selectedWorker.distance_km} km away` : ''}
+              </span>
               <span><CheckCircle2 /> {selectedWorker.is_online ? 'Available now' : 'Currently offline'}</span>
             </div>
             <p className="muted">{selectedWorker.bio || 'Skilled professional ready for everyday tasks and larger home projects.'}</p>
             <form className="form-stack compact" onSubmit={bookService}>
               <h3>Book service</h3>
               <Field label="Schedule" name="scheduled_at" type="datetime-local" required />
-              <Field label="Address" name="address" defaultValue={session.user.location ?? ''} required />
+              <label className="field">
+                <span>Address</span>
+                <input
+                  name="address"
+                  value={serviceAddress}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setServiceAddress(val);
+                    setServiceCoordinates(null);
+                    setServiceLocationSource('manual');
+                    setServiceLocationMessage(val.trim() ? '✓ Address manually entered' : '');
+                  }}
+                  placeholder="e.g. Madhapur, Hyderabad"
+                  required
+                />
+              </label>
               <div className="location-capture">
-                <button type="button" className="secondary-action" onClick={captureServiceLocation}>
-                  Use current service location
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={captureServiceLocation}
+                  disabled={isCapturingLocation}
+                >
+                  {isCapturingLocation ? 'Locating...' : 'Use current service location'}
                 </button>
-                <p className="muted">{serviceLocationMessage}</p>
+                {serviceLocationMessage && (
+                  <p className={serviceLocationMessage.startsWith('✓') ? 'success-text' : 'muted'}>
+                    {serviceLocationMessage}
+                  </p>
+                )}
               </div>
               <label className="field">
                 <span>Describe your job</span>
@@ -1638,13 +1823,16 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 
 function money(value: string | number) {
   const parsed = Number(value);
+
   if (Number.isNaN(parsed)) return String(value);
-  return new Intl.NumberFormat('en-US', {
+
+  return new Intl.NumberFormat('en-IN', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'INR',
     maximumFractionDigits: 0,
   }).format(parsed);
 }
+
 
 function formatDate(value: string) {
   if (!value) return '';

@@ -296,9 +296,18 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
   const [loading, setLoading] = useState(false);
   const [signupCoordinates, setSignupCoordinates] = useState<Coordinates | null>(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [locationSource, setLocationSource] = useState<'gps' | 'manual' | null>(null);
   const [locationMessage, setLocationMessage] = useState('');
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [signupForm, setSignupForm] = useState({ username: '', email: '', password: '', phone_number: '', location: '', email_otp: '' });
+  const [signupForm, setSignupForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    phone_number: '',
+    location: '',
+    category: 'Electrician',
+    email_otp: '',
+  });
 
   async function login() {
     setLoading(true);
@@ -328,11 +337,13 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
         email: emailForOtp,
         password: signupForm.password,
         role,
+        category: role === 'worker' ? signupForm.category.trim() || 'General Maintenance' : undefined,
         phone_number: signupForm.phone_number.trim(),
         location: signupForm.location.trim(),
         latitude: signupCoordinates ? parseFloat(signupCoordinates.latitude.toFixed(6)) : null,
         longitude: signupCoordinates ? parseFloat(signupCoordinates.longitude.toFixed(6)) : null,
         location_permission_granted: locationPermissionGranted,
+        location_source: locationSource ?? (signupForm.location.trim() ? 'manual' : undefined),
         email_otp: signupForm.email_otp.trim(),
       });
       await onAuthenticated(result);
@@ -342,14 +353,30 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
 
   async function captureSignupLocation() {
     setLoading(true);
+    setLocationMessage('Getting your current location...');
     try {
       const coords = await requestDeviceLocation();
       setSignupCoordinates(coords);
       setLocationPermissionGranted(true);
-      setLocationMessage('Location saved for nearby services and jobs.');
+      setLocationSource('gps');
+      setLocationMessage('Finding your address...');
+
+      // Reverse geocode via backend to get address name
+      try {
+        const geo = await api.geocode({ latitude: coords.latitude, longitude: coords.longitude });
+        if (geo.location_name) {
+          setSignupForm((f) => ({ ...f, location: geo.location_name }));
+          setLocationMessage('✓ Current location captured');
+        } else {
+          setLocationMessage('✓ GPS coordinates captured');
+        }
+      } catch {
+        setLocationMessage('✓ GPS coordinates captured');
+      }
     } catch (error) {
       setSignupCoordinates(null);
       setLocationPermissionGranted(false);
+      setLocationSource(null);
       setLocationMessage(error instanceof Error ? error.message : 'Location was not saved.');
     } finally { setLoading(false); }
   }
@@ -379,33 +406,76 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (result: AuthRespons
             <Button title={loading ? 'Signing in...' : 'Login'} onPress={login} disabled={loading} />
           </View>
         ) : (
-          <View style={styles.card}>
+          <View style={[styles.card, role === 'worker' && styles.workerCardTheme]}>
             <View style={styles.roleRow}>
               <Pill label="Customer" active={role === 'customer'} onPress={() => setRole('customer')} />
-              <Pill label="Worker" active={role === 'worker'} onPress={() => setRole('worker')} />
+              <Pill label="🛠️ Worker (Pro)" active={role === 'worker'} onPress={() => setRole('worker')} />
             </View>
+
+            {role === 'worker' ? (
+              <View style={styles.workerCalloutCard}>
+                <Text style={styles.workerBadge}>🛠️ PRO WORKER SIGNUP</Text>
+                <Text style={styles.workerCalloutTitle}>Wanna Join as Worker?</Text>
+                <Text style={styles.workerCalloutSubtitle}>
+                  Register your professional profile, set your work area, and start getting hired by local customers.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.customerCalloutCard}>
+                <Text style={styles.customerBadge}>👤 CUSTOMER SIGNUP</Text>
+                <Text style={styles.sectionTitle}>Create Customer Account</Text>
+                <Text style={styles.muted}>Book skilled professionals for home & everyday services.</Text>
+                <Pressable style={styles.joinWorkerBanner} onPress={() => setRole('worker')}>
+                  <Text style={styles.joinWorkerBannerText}>🛠️ Wanna Join as Worker? Register here →</Text>
+                </Pressable>
+              </View>
+            )}
+
             {!otpSent ? (
               <>
-                <Text style={styles.sectionTitle}>Send OTP</Text>
                 <Input label="Email address" value={signupForm.email} onChangeText={(email) => setSignupForm((f) => ({ ...f, email }))} keyboardType="email-address" autoCapitalize="none" />
-                <Button title={loading ? 'Sending...' : 'Send OTP'} onPress={sendOtp} disabled={loading} />
+                <Button title={loading ? 'Sending...' : role === 'worker' ? 'Send Worker OTP' : 'Send OTP'} onPress={sendOtp} disabled={loading} />
               </>
             ) : (
               <>
                 <Text style={styles.sectionTitle}>Verify email</Text>
                 <Text style={styles.muted}>Code sent to {emailForOtp}</Text>
-                <Input label="Full name" value={signupForm.username} onChangeText={(username) => setSignupForm((f) => ({ ...f, username }))} />
+                <Input label={role === 'worker' ? "Full name / Pro name" : "Full name"} value={signupForm.username} onChangeText={(username) => setSignupForm((f) => ({ ...f, username }))} />
+                {role === 'worker' && (
+                  <Input
+                    label="Primary Trade / Category"
+                    value={signupForm.category}
+                    onChangeText={(category) => setSignupForm((f) => ({ ...f, category }))}
+                    placeholder="e.g. Electrician, Plumber, Carpenter"
+                  />
+                )}
                 <Input label="Phone" value={signupForm.phone_number} onChangeText={(phone_number) => setSignupForm((f) => ({ ...f, phone_number }))} keyboardType="phone-pad" />
-                <Input label="Location" value={signupForm.location} onChangeText={(location) => setSignupForm((f) => ({ ...f, location }))} />
+                <Input
+                  label={role === 'worker' ? "Service base location" : "Location"}
+                  value={signupForm.location}
+                  onChangeText={(location) => {
+                    setSignupForm((f) => ({ ...f, location }));
+                    if (locationSource === 'gps') {
+                      setSignupCoordinates(null);
+                      setLocationSource('manual');
+                      setLocationMessage('');
+                    }
+                  }}
+                  placeholder="e.g. Madhapur, Hyderabad"
+                />
                 <View style={styles.locationBox}>
                   <Text style={styles.itemTitle}>GPS location</Text>
                   <Text style={styles.muted}>Used for location-based services and worker job directions.</Text>
                   <GhostButton title={signupCoordinates ? 'Update current location' : 'Use current location'} onPress={captureSignupLocation} />
-                  {!!locationMessage && <Text style={styles.muted}>{locationMessage}</Text>}
+                  {!!locationMessage && (
+                    <Text style={locationMessage.startsWith('✓') ? styles.successText : styles.muted}>
+                      {locationMessage}
+                    </Text>
+                  )}
                 </View>
                 <Input label="Email OTP" value={signupForm.email_otp} onChangeText={(email_otp) => setSignupForm((f) => ({ ...f, email_otp }))} keyboardType="number-pad" maxLength={6} />
                 <Input label="Password" value={signupForm.password} onChangeText={(password) => setSignupForm((f) => ({ ...f, password }))} secureTextEntry />
-                <Button title={loading ? 'Creating...' : 'Continue'} onPress={signup} disabled={loading} />
+                <Button title={loading ? 'Creating...' : role === 'worker' ? 'Join as Worker' : 'Create Customer Account'} onPress={signup} disabled={loading} />
                 <GhostButton title="Use a different email" onPress={() => setOtpSent(false)} />
               </>
             )}
@@ -1075,9 +1145,22 @@ function CustomerHome({
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [availableOnly, setAvailableOnly] = useState(true);
-  const [serviceCoordinates, setServiceCoordinates] = useState<Coordinates | null>(null);
-  const [serviceLocationMessage, setServiceLocationMessage] = useState('');
-  const [bookingForm, setBookingForm] = useState({ scheduled_at: '', address: session.user.location ?? '', description: '' });
+  const [serviceCoordinates, setServiceCoordinates] = useState<Coordinates | null>(
+    session.user.latitude && session.user.longitude
+      ? { latitude: Number(session.user.latitude), longitude: Number(session.user.longitude) }
+      : null,
+  );
+  const [serviceLocationSource, setServiceLocationSource] = useState<'saved' | 'gps' | 'manual' | null>(
+    session.user.location || (session.user.latitude && session.user.longitude) ? 'saved' : null,
+  );
+  const [serviceLocationMessage, setServiceLocationMessage] = useState(
+    session.user.location ? '✓ Using your saved location' : '',
+  );
+  const [bookingForm, setBookingForm] = useState({
+    scheduled_at: '',
+    address: session.user.location ?? '',
+    description: '',
+  });
 
   const loadBookings = useCallback(() => {
     api.customerBookings(session.accessToken).then((r) => setBookings(r.list)).catch(() => undefined);
@@ -1089,41 +1172,67 @@ function CustomerHome({
   }, [loadBookings]);
 
   useEffect(() => {
-    api.nearbyWorkers({ category, search, availableOnly })
+    const lat = session.user.latitude ? Number(session.user.latitude) : null;
+    const lng = session.user.longitude ? Number(session.user.longitude) : null;
+    api.nearbyWorkers({ category, search, availableOnly, lat, lng }, session.accessToken)
       .then((r) => { setWorkers(r.list); setSelectedWorker((c) => c ?? r.list[0] ?? null); })
       .catch((e) => showError('Could not load workers', e));
-  }, [availableOnly, category, search]);
+  }, [availableOnly, category, search, session.accessToken, session.user.latitude, session.user.longitude]);
 
   async function bookService() {
     if (!selectedWorker) return;
     try {
       const scheduledAt = parseSchedule(bookingForm.scheduled_at);
+      const finalAddress = bookingForm.address.trim() || session.user.location || '';
       const booking = await api.createBooking(session.accessToken, {
         worker_id: selectedWorker.id,
         service_category: selectedWorker.category,
         description: bookingForm.description,
-        address: bookingForm.address || session.user.location || '',
-        service_latitude: serviceCoordinates?.latitude ?? null,
-        service_longitude: serviceCoordinates?.longitude ?? null,
+        address: finalAddress,
+        service_latitude: serviceCoordinates ? parseFloat(serviceCoordinates.latitude.toFixed(6)) : null,
+        service_longitude: serviceCoordinates ? parseFloat(serviceCoordinates.longitude.toFixed(6)) : null,
         location_permission_granted: Boolean(serviceCoordinates),
+        service_location_source: serviceLocationSource ?? (finalAddress ? 'manual' : undefined),
         scheduled_at: scheduledAt,
         total_amount: selectedWorker.price,
       });
       setBookings((c) => [booking, ...c]);
       setBookingForm({ scheduled_at: '', address: session.user.location ?? '', description: '' });
-      setServiceCoordinates(null);
-      setServiceLocationMessage('');
+      setServiceCoordinates(
+        session.user.latitude && session.user.longitude
+          ? { latitude: Number(session.user.latitude), longitude: Number(session.user.longitude) }
+          : null,
+      );
+      setServiceLocationSource(
+        session.user.location || (session.user.latitude && session.user.longitude) ? 'saved' : null,
+      );
+      setServiceLocationMessage(
+        session.user.location ? '✓ Using your saved location' : '',
+      );
       Alert.alert('Booking sent', 'Your booking request has been submitted. You will be notified when the worker accepts.');
     } catch (error) { showError('Could not create booking', error); }
   }
 
   async function captureServiceLocation() {
+    setServiceLocationMessage('Getting your current location...');
     try {
       const coords = await requestDeviceLocation();
       setServiceCoordinates(coords);
-      setServiceLocationMessage('Service location saved for this booking.');
+      setServiceLocationSource('gps');
+      setServiceLocationMessage('Finding your address...');
+
+      try {
+        const geo = await api.geocode({ latitude: coords.latitude, longitude: coords.longitude });
+        if (geo.location_name) {
+          setBookingForm((f) => ({ ...f, address: geo.location_name }));
+          setServiceLocationMessage('✓ Current service location captured');
+        } else {
+          setServiceLocationMessage('✓ Current service location captured');
+        }
+      } catch {
+        setServiceLocationMessage('✓ Current service location captured');
+      }
     } catch (error) {
-      setServiceCoordinates(null);
       setServiceLocationMessage(error instanceof Error ? error.message : 'Service location was not saved.');
     }
   }
@@ -1153,6 +1262,14 @@ function CustomerHome({
           <View style={styles.flex}>
             <Text style={styles.itemTitle}>{worker.user.username}</Text>
             <Text style={styles.muted}>{worker.category}</Text>
+            {(worker.location_name || worker.user.location) ? (
+              <Text style={styles.muted}>
+                📍 {worker.location_name || worker.user.location}
+                {worker.distance_km != null ? ` • ${worker.distance_km} km` : ''}
+              </Text>
+            ) : worker.distance_km != null ? (
+              <Text style={styles.muted}>📏 {worker.distance_km} km away</Text>
+            ) : null}
             <Text style={styles.rating}>⭐ {worker.rating} ({worker.total_reviews})</Text>
           </View>
           <View style={styles.rightMeta}>
@@ -1167,13 +1284,33 @@ function CustomerHome({
         {selectedWorker ? (
           <>
             <Text style={styles.itemTitle}>{selectedWorker.user.username} — {selectedWorker.category}</Text>
+            {(selectedWorker.location_name || selectedWorker.user.location) && (
+              <Text style={styles.muted}>
+                📍 {selectedWorker.location_name || selectedWorker.user.location}
+                {selectedWorker.distance_km != null ? ` • ${selectedWorker.distance_km} km away` : ''}
+              </Text>
+            )}
             <Input label="Schedule" value={bookingForm.scheduled_at} onChangeText={(v) => setBookingForm((f) => ({ ...f, scheduled_at: v }))} placeholder="2026-08-08 18:30" />
-            <Input label="Address" value={bookingForm.address} onChangeText={(v) => setBookingForm((f) => ({ ...f, address: v }))} />
+            <Input
+              label="Address"
+              value={bookingForm.address}
+              onChangeText={(v) => {
+                setBookingForm((f) => ({ ...f, address: v }));
+                setServiceCoordinates(null);
+                setServiceLocationSource('manual');
+                setServiceLocationMessage(v.trim() ? '✓ Address manually entered' : '');
+              }}
+              placeholder="e.g. Madhapur, Hyderabad"
+            />
             <View style={styles.locationBox}>
               <Text style={styles.itemTitle}>Service location</Text>
               <Text style={styles.muted}>Save the exact job location for worker navigation.</Text>
               <GhostButton title={serviceCoordinates ? 'Update service location' : 'Use current service location'} onPress={captureServiceLocation} />
-              {!!serviceLocationMessage && <Text style={styles.muted}>{serviceLocationMessage}</Text>}
+              {!!serviceLocationMessage && (
+                <Text style={serviceLocationMessage.startsWith('✓') ? styles.successText : styles.muted}>
+                  {serviceLocationMessage}
+                </Text>
+              )}
             </View>
             <Input label="Describe your job" value={bookingForm.description} onChangeText={(v) => setBookingForm((f) => ({ ...f, description: v }))} multiline />
             <Button title="Confirm booking" onPress={bookService} />
@@ -1922,4 +2059,15 @@ const styles = StyleSheet.create({
   tabIcon: { fontSize: 18 },
   tabText: { color: palette.muted, fontSize: 10, fontWeight: '900' },
   tabActive: { color: palette.primaryStrong },
+
+  // Worker & Customer Signup
+  workerCardTheme: { borderColor: palette.primary, backgroundColor: '#F9FDFB' },
+  workerCalloutCard: { backgroundColor: '#F0FDF4', borderColor: '#86EFAC', borderRadius: 10, borderWidth: 1, padding: 12, gap: 4 },
+  workerBadge: { alignSelf: 'flex-start', backgroundColor: '#059669', borderRadius: 4, color: '#FFFFFF', fontSize: 10, fontWeight: '900', paddingHorizontal: 7, paddingVertical: 3, overflow: 'hidden' },
+  workerCalloutTitle: { color: '#166534', fontSize: 17, fontWeight: '900', marginTop: 3 },
+  workerCalloutSubtitle: { color: '#15803D', fontSize: 12, lineHeight: 17 },
+  customerCalloutCard: { backgroundColor: palette.surfaceSoft, borderColor: palette.line, borderRadius: 10, borderWidth: 1, padding: 12, gap: 4 },
+  customerBadge: { alignSelf: 'flex-start', backgroundColor: palette.surface, borderColor: palette.line, borderWidth: 1, borderRadius: 4, color: palette.muted, fontSize: 10, fontWeight: '900', paddingHorizontal: 7, paddingVertical: 3, overflow: 'hidden' },
+  joinWorkerBanner: { alignItems: 'center', backgroundColor: '#ECFDF5', borderColor: '#10B981', borderRadius: 8, borderStyle: 'dashed', borderWidth: 1, marginTop: 6, paddingHorizontal: 10, paddingVertical: 9 },
+  joinWorkerBannerText: { color: '#047857', fontSize: 12, fontWeight: '800' },
 });

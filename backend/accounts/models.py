@@ -43,6 +43,18 @@ class User(AbstractUser):
 
     location_permission_granted = models.BooleanField(default=False)
 
+    LOCATION_SOURCE_CHOICES = (
+        ('gps', 'GPS'),
+        ('manual', 'Manual'),
+    )
+
+    location_source = models.CharField(
+        max_length=10,
+        choices=LOCATION_SOURCE_CHOICES,
+        null=True,
+        blank=True,
+    )
+
     location_updated_at = models.DateTimeField(null=True, blank=True)
 
     profile_photo = models.ImageField(
@@ -50,6 +62,11 @@ class User(AbstractUser):
         null=True,
         blank=True
     )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['latitude', 'longitude']),
+        ]
 
 
 class SupportTicket(models.Model):

@@ -100,6 +100,17 @@ class Booking(models.Model):
         blank=True,
     )
     location_permission_granted = models.BooleanField(default=False)
+    LOCATION_SOURCE_CHOICES = (
+        ('saved', 'Saved'),
+        ('gps', 'GPS'),
+        ('manual', 'Manual'),
+    )
+    service_location_source = models.CharField(
+        max_length=10,
+        choices=LOCATION_SOURCE_CHOICES,
+        null=True,
+        blank=True,
+    )
     scheduled_at = models.DateTimeField()
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(

@@ -15,6 +15,7 @@ from accounts.serializers import (
     validate_latitude,
     validate_longitude,
 )
+from accounts.services.geocoding import forward_geocode, reverse_geocode
 
 ALLOWED_WORK_IMAGE_FORMATS = {'JPEG', 'PNG', 'WEBP'}
 ALLOWED_USER_UPDATE_FIELDS = {'username', 'phone_number', 'location', 'profile_photo'}
@@ -51,6 +52,11 @@ class WorkerWorkImageSerializer(serializers.ModelSerializer):
 class WorkerProfileSerializer(serializers.ModelSerializer):
     """Worker's own profile view (contains full user details)."""
     user = UserSerializer(read_only=True)
+    name = serializers.CharField(source='user.username', read_only=True)
+    latitude = serializers.DecimalField(source='user.latitude', max_digits=9, decimal_places=6, read_only=True, allow_null=True)
+    longitude = serializers.DecimalField(source='user.longitude', max_digits=9, decimal_places=6, read_only=True, allow_null=True)
+    location_name = serializers.CharField(source='user.location', read_only=True, allow_null=True)
+    distance_km = serializers.SerializerMethodField()
     work_images = WorkerWorkImageSerializer(many=True, read_only=True)
     cover_image_url = serializers.SerializerMethodField()
 
@@ -59,6 +65,7 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
+            'name',
             'category',
             'price',
             'bio',
@@ -66,9 +73,21 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
             'rating',
             'total_reviews',
             'experience_years',
+            'latitude',
+            'longitude',
+            'location_name',
+            'distance_km',
             'cover_image_url',
             'work_images',
         ]
+
+    def get_distance_km(self, obj):
+        if hasattr(obj, 'distance_km'):
+            return obj.distance_km
+        distances = self.context.get('distances')
+        if distances and obj.id in distances:
+            return distances[obj.id]
+        return None
 
     def get_cover_image_url(self, obj):
         first_image = obj.work_images.first()
@@ -80,6 +99,11 @@ class WorkerProfileSerializer(serializers.ModelSerializer):
 # SECURITY FIX #20: Public profile serializer for search/browse (masks sensitive user data)
 class PublicWorkerProfileSerializer(serializers.ModelSerializer):
     user = PublicUserSerializer(read_only=True)
+    name = serializers.CharField(source='user.username', read_only=True)
+    latitude = serializers.DecimalField(source='user.latitude', max_digits=9, decimal_places=6, read_only=True, allow_null=True)
+    longitude = serializers.DecimalField(source='user.longitude', max_digits=9, decimal_places=6, read_only=True, allow_null=True)
+    location_name = serializers.CharField(source='user.location', read_only=True, allow_null=True)
+    distance_km = serializers.SerializerMethodField()
     work_images = WorkerWorkImageSerializer(many=True, read_only=True)
     cover_image_url = serializers.SerializerMethodField()
 
@@ -88,6 +112,7 @@ class PublicWorkerProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'user',
+            'name',
             'category',
             'price',
             'bio',
@@ -95,9 +120,21 @@ class PublicWorkerProfileSerializer(serializers.ModelSerializer):
             'rating',
             'total_reviews',
             'experience_years',
+            'latitude',
+            'longitude',
+            'location_name',
+            'distance_km',
             'cover_image_url',
             'work_images',
         ]
+
+    def get_distance_km(self, obj):
+        if hasattr(obj, 'distance_km'):
+            return obj.distance_km
+        distances = self.context.get('distances')
+        if distances and obj.id in distances:
+            return distances[obj.id]
+        return None
 
     def get_cover_image_url(self, obj):
         first_image = obj.work_images.first()
@@ -189,6 +226,7 @@ class BookingSerializer(serializers.ModelSerializer):
             'service_latitude',
             'service_longitude',
             'location_permission_granted',
+            'service_location_source',
             'scheduled_at',
             'total_amount',
             'status',
@@ -226,9 +264,17 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             'service_latitude',
             'service_longitude',
             'location_permission_granted',
+            'service_location_source',
             'scheduled_at',
             'total_amount',
         ]
+        extra_kwargs = {
+            'address': {'required': False, 'allow_blank': True},
+            'service_location_source': {'required': False},
+            'service_latitude': {'required': False},
+            'service_longitude': {'required': False},
+            'location_permission_granted': {'required': False},
+        }
 
     def validate_worker_id(self, value):
         if not WorkerProfile.objects.filter(id=value, is_online=True).exists():
@@ -249,14 +295,75 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         latitude = attrs.get('service_latitude')
         longitude = attrs.get('service_longitude')
+        address = (attrs.get('address') or '').strip()
+        source = attrs.get('service_location_source')
+        user = self.context.get('request').user if self.context.get('request') else None
+
+        if source and source not in ('saved', 'gps', 'manual'):
+            raise serializers.ValidationError(
+                {'service_location_source': 'Invalid location source. Must be saved, gps, or manual.'}
+            )
+
         if (latitude is None) != (longitude is None):
             raise serializers.ValidationError(
                 {'location': 'Service latitude and longitude must be provided together.'}
             )
+
+        if not address and (latitude is None or longitude is None):
+            raise serializers.ValidationError(
+                {'address': 'Service address or coordinates are required.'}
+            )
+
+        if latitude is not None and longitude is not None:
+            if not source:
+                if (
+                    user
+                    and getattr(user, 'latitude', None) is not None
+                    and getattr(user, 'longitude', None) is not None
+                    and float(user.latitude) == float(latitude)
+                    and float(user.longitude) == float(longitude)
+                ):
+                    attrs['service_location_source'] = 'saved'
+                else:
+                    attrs['service_location_source'] = 'gps'
+
+            if not address:
+                try:
+                    geo = reverse_geocode(latitude, longitude)
+                    if geo and geo.get('location_name'):
+                        attrs['address'] = geo['location_name']
+                    else:
+                        attrs['address'] = f"GPS: {latitude:.4f}, {longitude:.4f}"
+                except Exception:
+                    attrs['address'] = f"GPS: {latitude:.4f}, {longitude:.4f}"
+        elif address:
+            # Manual address without coordinates: attempt forward geocode
+            if not source:
+                attrs['service_location_source'] = 'manual'
+            try:
+                geo = forward_geocode(address)
+                if geo and geo.get('latitude') is not None and geo.get('longitude') is not None:
+                    attrs['service_latitude'] = geo['latitude']
+                    attrs['service_longitude'] = geo['longitude']
+            except Exception:
+                pass
+
         return attrs
 
     def create(self, validated_data):
         worker_id = validated_data.pop('worker_id')
+        address = validated_data.get('address', '')
+        lat = validated_data.get('service_latitude')
+        lon = validated_data.get('service_longitude')
+
+        if not address and lat is not None and lon is not None:
+            try:
+                geo = reverse_geocode(lat, lon)
+                if geo and geo.get('location_name'):
+                    validated_data['address'] = geo['location_name']
+            except Exception:
+                pass
+
         booking = Booking.objects.create(
             customer=self.context['request'].user,
             worker_id=worker_id,

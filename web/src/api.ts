@@ -77,10 +77,29 @@ export const api = {
       body: JSON.stringify({ email }),
     });
   },
+  geocode(data: { latitude?: number; longitude?: number; location_name?: string }) {
+    return request<{ latitude: number | null; longitude: number | null; location_name: string }>(
+      '/api/auth/geocode/',
+      { method: 'POST', body: JSON.stringify(data) },
+    );
+  },
   signup(data: SignupPayload) {
-    return request<AuthResponse>('/api/auth/signup/', {
+    const endpoint = data.role === 'worker' ? '/api/auth/worker-signup/' : '/api/auth/customer-signup/';
+    return request<AuthResponse>(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+  workerSignup(data: SignupPayload) {
+    return request<AuthResponse>('/api/auth/worker-signup/', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, role: 'worker' }),
+    });
+  },
+  customerSignup(data: SignupPayload) {
+    return request<AuthResponse>('/api/auth/customer-signup/', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, role: 'customer' }),
     });
   },
   login(email: string, password: string) {
@@ -161,6 +180,7 @@ export const api = {
       availableOnly?: boolean;
       lat?: number | null;
       lng?: number | null;
+      radius?: number | null;
     } = {},
     token?: string | null,
   ) {
@@ -170,6 +190,7 @@ export const api = {
     if (params.availableOnly) query.set('available_only', 'true');
     if (params.lat != null) query.set('lat', String(params.lat));
     if (params.lng != null) query.set('lng', String(params.lng));
+    if (params.radius != null) query.set('radius', String(params.radius));
     const suffix = query.toString() ? `?${query}` : '';
     return request<{ list: WorkerProfile[] }>(`/api/workers/nearby/${suffix}`, {}, token);
   },
@@ -186,6 +207,7 @@ export const api = {
       service_latitude?: number | string | null;
       service_longitude?: number | string | null;
       location_permission_granted?: boolean;
+      service_location_source?: 'saved' | 'gps' | 'manual' | null;
       scheduled_at: string;
       total_amount: string;
     },

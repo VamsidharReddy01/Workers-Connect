@@ -645,11 +645,11 @@ def _haversine_km(lat1, lon1, lat2, lon2):
 
 class NearbyWorkersView(APIView):
     """
-    API View to list registered workers.
+    API View to list registered workers with geographic distance calculation.
     Uses PublicWorkerProfileSerializer to avoid leaking sensitive user information.
     """
     permission_classes = [AllowAny]
-    
+
     def get(self, request):
         queryset = (
             WorkerProfile.objects.select_related('user')
@@ -667,37 +667,75 @@ class NearbyWorkersView(APIView):
         if user_lat is None and request.user.is_authenticated and getattr(request.user, 'latitude', None) is not None:
             user_lat = request.user.latitude
             user_lng = request.user.longitude
-        
+
+        if user_lat is not None or user_lng is not None:
+            try:
+                user_lat = float(user_lat)
+                user_lng = float(user_lng)
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Invalid latitude or longitude coordinates.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not (-90 <= user_lat <= 90) or not (-180 <= user_lng <= 180):
+                return Response(
+                    {'error': 'Coordinates out of range.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        radius_param = request.query_params.get('radius')
+        radius = None
+        if radius_param is not None:
+            try:
+                radius = float(radius_param)
+                if radius <= 0 or radius > 1000:
+                    return Response(
+                        {'error': 'Radius must be a positive number up to 1000 km.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            except (ValueError, TypeError):
+                return Response(
+                    {'error': 'Invalid radius parameter.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         if category:
             queryset = queryset.filter(category__iexact=category)
         if available_only and available_only.lower() in {'1', 'true', 'yes'}:
             queryset = queryset.filter(is_online=True)
         if search:
             queryset = queryset.filter(
-                Q(user__username__icontains=search) | 
+                Q(user__username__icontains=search) |
                 Q(category__icontains=search) |
                 Q(user__location__icontains=search)
             )
-        # Calculate distance before serializing with PublicWorkerProfileSerializer
+
         distances = {}
         if user_lat is not None and user_lng is not None:
+            filtered_profiles = []
             for profile in queryset:
                 w_lat = profile.user.latitude
                 w_lng = profile.user.longitude
-                distances[profile.id] = _haversine_km(user_lat, user_lng, w_lat, w_lng)
+                dist = _haversine_km(user_lat, user_lng, w_lat, w_lng)
+                distances[profile.id] = dist
 
-        # SECURITY FIX #20: Use PublicWorkerProfileSerializer for public endpoints
+                if radius is not None:
+                    if dist is not None and dist <= radius:
+                        filtered_profiles.append(profile)
+                else:
+                    filtered_profiles.append(profile)
+            target_list = filtered_profiles
+        else:
+            target_list = list(queryset)
+
         serializer = PublicWorkerProfileSerializer(
-            queryset,
+            target_list,
             many=True,
-            context={'request': request},
+            context={'request': request, 'distances': distances},
         )
         data = serializer.data
 
         if user_lat is not None and user_lng is not None:
-            for item in data:
-                item['distance_km'] = distances.get(item.get('id'))
-            
             data.sort(
                 key=lambda x: (
                     not x.get('is_online', False),
@@ -705,7 +743,7 @@ class NearbyWorkersView(APIView):
                 )
             )
 
-        return Response({'list': data}, status=status.HTTP_200_OK)
+        return Response({'list': data, 'results': data, 'count': len(data)}, status=status.HTTP_200_OK)
 
 
 class WorkerPublicDetailView(APIView):
@@ -722,9 +760,18 @@ class WorkerPublicDetailView(APIView):
         except WorkerProfile.DoesNotExist:
             return Response({'error': 'Worker not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # SECURITY FIX #20: Use PublicWorkerProfileSerializer for public worker profile
+        distances = {}
+        user_lat = request.query_params.get('lat') or request.query_params.get('latitude')
+        user_lng = request.query_params.get('lng') or request.query_params.get('longitude')
+        if user_lat is None and request.user.is_authenticated and getattr(request.user, 'latitude', None) is not None:
+            user_lat = request.user.latitude
+            user_lng = request.user.longitude
+
+        if user_lat is not None and user_lng is not None and profile.user.latitude is not None and profile.user.longitude is not None:
+            distances[profile.id] = _haversine_km(user_lat, user_lng, profile.user.latitude, profile.user.longitude)
+
         return Response(
-            PublicWorkerProfileSerializer(profile, context={'request': request}).data,
+            PublicWorkerProfileSerializer(profile, context={'request': request, 'distances': distances}).data,
             status=status.HTTP_200_OK,
         )
 

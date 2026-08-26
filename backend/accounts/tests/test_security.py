@@ -31,6 +31,7 @@ class AccountSecurityTests(TestCase):
         self.assertEqual(res2.data['message'], 'If this email is eligible, an OTP has been sent.')
 
     def test_role_self_assignment_prevention(self):
+        """Privilege escalation by attempting to pass invalid/admin roles is rejected."""
         cache.set('signup_email_otp:escalator@example.com', '123456', timeout=600)
         cache.set('signup_otp_attempts:escalator@example.com', 0, timeout=600)
 
@@ -38,14 +39,33 @@ class AccountSecurityTests(TestCase):
             'username': 'escalator',
             'email': 'escalator@example.com',
             'password': 'StrongPassword123!',
-            'role': 'worker',
+            'role': 'admin',
             'email_otp': '123456',
         }
         res = self.client.post('/api/auth/signup/', payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('role', res.data['errors'])
+        self.assertFalse(User.objects.filter(email='escalator@example.com').exists())
+
+    def test_worker_signup_endpoint_creates_worker_and_profile(self):
+        cache.set('signup_email_otp:pro_worker@example.com', '123456', timeout=600)
+        cache.set('signup_otp_attempts:pro_worker@example.com', 0, timeout=600)
+
+        payload = {
+            'username': 'pro_worker',
+            'email': 'pro_worker@example.com',
+            'password': 'StrongPassword123!',
+            'category': 'Electrician',
+            'email_otp': '123456',
+        }
+        res = self.client.post('/api/auth/worker-signup/', payload)
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
 
-        created_user = User.objects.get(email='escalator@example.com')
-        self.assertEqual(created_user.role, 'customer')
+        created_user = User.objects.get(email='pro_worker@example.com')
+        self.assertEqual(created_user.role, 'worker')
+        from workers.models import WorkerProfile
+        profile = WorkerProfile.objects.get(user=created_user)
+        self.assertEqual(profile.category, 'Electrician')
 
     def test_otp_brute_force_lockout(self):
         cache.set('signup_email_otp:victim@example.com', '999999', timeout=600)

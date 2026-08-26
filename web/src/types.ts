@@ -11,6 +11,7 @@ export type User = {
   longitude?: string | null;
   location_permission_granted?: boolean;
   location_updated_at?: string | null;
+  location_source?: string | null;
   profile_photo_url?: string | null;
 };
 
@@ -36,11 +37,13 @@ export type SignupPayload = {
   email: string;
   password: string;
   role: Exclude<UserRole, 'admin'>;
+  category?: string;
   phone_number?: string;
   location?: string;
   latitude?: number | string | null;
   longitude?: number | string | null;
   location_permission_granted?: boolean;
+  location_source?: string;
   email_otp: string;
 };
 
@@ -61,6 +64,7 @@ export type WorkerImage = {
 export type WorkerProfile = {
   id: number;
   user: User;
+  name?: string;
   category: string;
   price: string;
   bio: string;
@@ -70,6 +74,9 @@ export type WorkerProfile = {
   experience_years: number;
   cover_image_url: string | null;
   work_images: WorkerImage[];
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  location_name?: string | null;
   distance_km?: number | null;
 };
 
@@ -92,6 +99,7 @@ export type Booking = {
   service_latitude?: string | null;
   service_longitude?: string | null;
   location_permission_granted?: boolean;
+  service_location_source?: 'saved' | 'gps' | 'manual' | null;
   scheduled_at: string;
   total_amount: string;
   status: BookingStatus;
